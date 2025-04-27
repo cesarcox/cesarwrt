@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herramienta Interactiva de Estudio WRT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* General styles */
+        body {
+            font-family: 'Inter', sans-serif; /* Recommended font */
+        }
+        .module-content { display: none; } /* Hide modules by default */
+        .module-content.active { display: block; } /* Show active module */
+
+        /* Styles for <details> (accordion) */
+        details { margin-bottom: 1rem; } /* Space below details */
+        details > summary {
+            cursor: pointer; list-style: none; padding: 0.75rem 1rem;
+            background-color: #eef2ff; /* bg-indigo-50 */ border: 1px solid #c7d2fe; /* border-indigo-200 */
+            border-radius: 0.375rem; /* rounded-md */ margin-bottom: 0; /* Remove bottom margin from summary */
+            font-weight: 600; /* font-semibold */ color: #4338ca; /* text-indigo-700 */
+            transition: background-color 0.2s ease; display: flex;
+            justify-content: space-between; align-items: center;
+        }
+        details > summary:hover { background-color: #c7d2fe; /* hover:bg-indigo-200 */ }
+        details > summary::after { /* +/- Icon */
+            content: '+'; font-size: 1.2em; font-weight: bold;
+            margin-left: 0.5rem; transition: transform 0.2s ease;
+        }
+        details[open] > summary::after { content: '−'; /* Keep rotation for consistency */ }
+        details[open] > summary {
+             border-bottom-left-radius: 0; /* Remove bottom radius when open */
+             border-bottom-right-radius: 0;
+        }
+        details > summary::-webkit-details-marker { display: none; } /* Hide default marker */
+        details > div { /* Accordion content */
+            padding: 1rem 1.5rem; border: 1px solid #c7d2fe; /* border-indigo-200 */ border-top: none;
+            border-radius: 0 0 0.375rem 0.375rem; /* rounded-b-md */
+            background-color: #ffffff; /* White background */ line-height: 1.6; /* Readability */
+        }
+        details > div ul { margin-left: 1.5rem; margin-top: 0.5rem; list-style: disc; } /* List style */
+        details > div strong { color: #1f2937; /* text-gray-800 */ } /* Highlight bold */
+        details > div p { margin-bottom: 0.5rem; } /* Space between paragraphs */
+        details > div h4 { font-weight: bold; margin-top: 1rem; margin-bottom: 0.5rem; color: #4f46e5; /* text-indigo-600 */} /* Sub-heading style */
+
+
+        /* Styles for diagrams (simplified) */
+        .diagram-circle {
+            position: relative; width: 200px; height: 200px; border-radius: 50%;
+            background-color: #f0f0f0; margin: 1rem auto; display: flex;
+            align-items: center; justify-content: center; text-align: center; font-weight: bold;
+        }
+        .diagram-segment {
+            position: absolute; padding: 5px; background-color: rgba(59, 130, 246, 0.8); /* bg-blue-500 */
+            color: white; border-radius: 5px; cursor: pointer; font-size: 0.8rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: transform 0.2s ease;
+        }
+         .diagram-segment:hover { transform: scale(1.1); z-index: 10; }
+        .segment-1 { top: 10px; left: 50%; transform: translateX(-50%); }
+        .segment-2 { right: 10px; top: 50%; transform: translateY(-50%); }
+        .segment-3 { bottom: 10px; left: 50%; transform: translateX(-50%); }
+        .segment-4 { left: 10px; top: 50%; transform: translateY(-50%); }
+        .flowchart-step {
+            border: 1px solid #d1d5db; /* border-gray-300 */ padding: 0.75rem 1rem; margin-bottom: 0.5rem;
+            border-radius: 0.375rem; background-color: #f9fafb; /* bg-gray-50 */
+        }
+
+        /* --- Quiz Styles --- */
+        .quiz-section { margin-top: 2rem; } /* Add space above quiz section */
+        .quiz-question {
+            background-color: #f9fafb; /* bg-gray-50 */ padding: 1rem; margin-bottom: 1.5rem;
+            border-radius: 0.375rem; /* rounded-md */ border: 1px solid #e5e7eb; /* border-gray-200 */
+        }
+        .quiz-options button {
+            display: flex; align-items: center; /* Align icon */
+            width: 100%; text-align: left; padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem; border: 1px solid #d1d5db; /* border-gray-300 */ border-radius: 0.375rem; /* rounded-md */
+            background-color: white; cursor: pointer; transition: all 0.2s ease;
+        }
+        .quiz-options button .feedback-icon { /* Icon style */
+            margin-right: 0.5rem; font-weight: bold; min-width: 1.2em; display: inline-block;
+        }
+        .quiz-options button:hover:not(:disabled) { background-color: #f3f4f6; /* hover:bg-gray-100 */ border-color: #9ca3af; /* hover:border-gray-400 */ }
+        .quiz-options button:disabled { cursor: not-allowed; opacity: 0.7; }
+        .quiz-options button.correct { background-color: #d1fae5; /* bg-green-100 */ border-color: #10b981; /* border-green-500 */ font-weight: bold; }
+        .quiz-options button.incorrect { background-color: #fee2e2; /* bg-red-100 */ border-color: #ef4444; /* border-red-500 */ }
+        .quiz-explanation {
+            margin-top: 0.75rem; padding: 0.75rem; background-color: #e0f2fe; /* bg-sky-100 */
+            border-left: 4px solid #0ea5e9; /* border-sky-500 */ border-radius: 0.25rem; font-size: 0.9rem;
+            display: none; /* Hidden by default */
+        }
+        .quiz-explanation.visible { display: block; } /* Show explanation */
+        .quiz-explanation strong { color: #0c546b; } /* Bold color in explanation */
+
+
+        /* Styles for score and reset buttons */
+        .quiz-module-score {
+            margin-top: 1rem; padding: 0.5rem 1rem; background-color: #eef2ff; /* bg-indigo-50 */
+            border: 1px solid #c7d2fe; /* border-indigo-200 */ border-radius: 0.375rem; /* rounded-md */
+            text-align: center; font-weight: 600; /* font-semibold */ color: #4338ca; /* text-indigo-700 */
+        }
+        .reset-button {
+            display: inline-block; margin-top: 0.75rem; padding: 0.5rem 1rem;
+            background-color: #fca5a5; /* bg-red-300 */ color: #7f1d1d; /* text-red-900 */
+            border: 1px solid #f87171; /* border-red-400 */ border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.875rem; /* text-sm */ font-weight: 500; /* font-medium */
+            cursor: pointer; transition: background-color 0.2s ease;
+        }
+        .reset-button:hover { background-color: #f87171; /* hover:bg-red-400 */ color: white; }
+        #quiz-score-container { /* Total score container and reset button */
+             margin-top: auto; /* Push to bottom */ padding-top: 1rem; /* Space above */
+             border-top: 1px solid #4b5563; /* Separator */
+        }
+        #quiz-score {
+            font-weight: bold; padding: 0.75rem; background-color: #4b5563; /* bg-gray-600 */
+            color: white; border-radius: 5px; text-align: center; margin-bottom: 0.5rem;
+        }
+        #reset-total-button { display: block; width: 100%; } /* Full width total reset button */
+
+        /* --- Final Test Styles (Module 16) --- */
+        .final-test-item {
+            background-color: #f9fafb; /* bg-gray-50 */
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.375rem; /* rounded-md */
+            border: 1px solid #e5e7eb; /* border-gray-200 */
+        }
+        .final-test-question {
+            font-weight: 600; /* font-semibold */
+            margin-bottom: 0.75rem;
+        }
+        .reveal-answer-button {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            background-color: #60a5fa; /* bg-blue-400 */
+            color: white;
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.875rem; /* text-sm */
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            margin-bottom: 0.5rem;
+        }
+        .reveal-answer-button:hover {
+            background-color: #3b82f6; /* bg-blue-500 */
+        }
+        .final-test-answer {
+            display: none; /* Hidden by default */
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background-color: #f0fdf4; /* bg-green-50 */
+            border-left: 4px solid #22c55e; /* border-green-500 */
+            border-radius: 0.25rem;
+            font-weight: 500; /* font-medium */
+        }
+        .final-test-answer.visible {
+            display: block; /* Show answer */
+        }
+
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <aside class="w-full md:w-72 bg-gray-800 text-white p-4 flex flex-col">
+            <h2 class="text-xl font-bold mb-4">Módulos WRT</h2>
+            <nav class="flex-grow overflow-y-auto space-y-1 pr-2">
+                <ul>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module1">1. Introducción</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module2">2. Seguridad</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module3">3. IICRC y Estándares</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module4">4. Microbiología</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module5">5. Inspección Inicial</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module6">6. Primeros Pasos</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module7">7. Ciencia del Secado 1</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module8">8. Ciencia del Secado 2</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module9">9. Clase de Agua</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module10">10. Movimiento del Aire</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module11">11. Equipos y Medidores</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module12">12. Descontaminación</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module13">13. Escenarios Específicos</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module14">14. Monitoreo</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link" data-module="module15">15. Repaso y Fórmulas</a></li>
+                    <li><a href="#" class="block py-2 px-3 rounded hover:bg-gray-700 module-link font-bold text-yellow-300" data-module="module16">16. Test Final (Preguntas y Respuestas)</a></li>
+                 </ul>
+            </nav>
+            <div id="quiz-score-container">
+                 <div id="quiz-score">Puntuación Total: 0 / 0</div>
+                 <button id="reset-total-button" class="reset-button w-full">Reiniciar Puntuación Total</button>
+             </div>
+        </aside>
+
+        <main class="flex-1 p-6 md:p-10 bg-white overflow-y-auto">
+            <h1 id="module-title" class="text-3xl font-bold mb-6 text-gray-800">Bienvenido a la Herramienta de Estudio WRT</h1>
+
+            <section id="module1" class="module-content">
+                <details>
+                    <summary>Información Clave: Introducción</summary>
+                    <div>
+                        <h4>Introducción a IICRC WRT y ASD</h4>
+                        <p>Este curso te prepara para las certificaciones IICRC WRT y ASD, enseñando la ciencia y el arte de la restauración de daños por agua, enfocándose en limpiar, secar y documentar todo el proceso.</p>
+                        <h4>¿Qué es la Restauración de Daños por Agua?</h4>
+                        <p>El objetivo es devolver un edificio a un estado limpio, seco y saludable de la manera más rentable posible, priorizando siempre la salud y seguridad. La respuesta rápida es crucial para limitar daños y crecimiento de moho. La mitigación consiste en tomar decisiones inteligentes sobre qué secar y qué quitar para minimizar costos.</p>
+                    </div>
+                </details>
+                <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 1</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module1" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module1" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 1</button>
+                </div>
+            </section>
+
+             <section id="module2" class="module-content">
+                 <details>
+                    <summary>Información Clave: Seguridad</summary>
+                    <div>
+                        <h4>Trabajando con Seguridad</h4>
+                        <p>La seguridad es prioritaria, usando la Jerarquía de Controles (Eliminación, Sustitución, Ingeniería, Administrativos, PPE). Se debe tener precaución con riesgos eléctricos en ambientes húmedos y usar equipo de protección personal (PPE) adecuado para protegerse de la exposición dérmica, respiratoria y por membranas mucosas.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 2</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module2" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module2" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 2</button>
+                 </div>
+             </section>
+
+             <section id="module3" class="module-content">
+                 <details>
+                    <summary>Información Clave: IICRC y Estándares</summary>
+                    <div>
+                        <p>Este módulo cubre la importancia del Instituto de Inspección, Limpieza y Certificación de Restauración (IICRC) y sus estándares, especialmente el ANSI/IICRC S500, que define el estándar de cuidado para la restauración profesional de daños por agua. Se explica la terminología clave como 'Shall' (obligatorio) y 'Should' (recomendado).</p>
+                        </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 3</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module3" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module3" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 3</button>
+                 </div>
+             </section>
+
+              <section id="module4" class="module-content">
+                 <details>
+                    <summary>Información Clave: Microbiología</summary>
+                    <div>
+                        <h4>Microbiología del Daño por Agua</h4>
+                        <p>Se enfoca en moho y bacterias. La 'Categoría' define la contaminación del agua (Cat 1: sanitaria, Cat 2: significativa, Cat 3: grave) y la 'Condición' define la contaminación por moho (Condición 1: normal, Condición 2: esporas altas, Condición 3: crecimiento visible). Es crucial actuar rápido para prevenir el crecimiento de moho, que necesita humedad, temperatura adecuada, aire estancado y tiempo.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 4</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module4" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module4" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 4</button>
+                 </div>
+             </section>
+
+             <section id="module5" class="module-content">
+                 <details>
+                    <summary>Información Clave: Inspección Inicial</summary>
+                    <div>
+                        <h4>Llegada al Trabajo</h4>
+                        <p>La seguridad y el profesionalismo son clave desde el principio. Realiza una inspección inicial enfocada en recolectar información y obtén un contrato firmado antes de empezar.</p>
+                        <h4>Inspección y Plan Inicial de Secado</h4>
+                        <p>Una inspección detallada es la base de un plan efectivo. Identifica peligros, categoría del agua, perímetro afectado, mide humedad y condiciones psicrométricas, determina la Clase de Agua y crea un plan inicial considerando materiales, ensamblajes y recursos.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 5</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module5" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module5" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 5</button>
+                 </div>
+             </section>
+
+             <section id="module6" class="module-content">
+                 <details>
+                    <summary>Información Clave: Primeros Pasos</summary>
+                    <div>
+                        <h4>Primeros Pasos - Extracción, Control de Humedad Inicial, Contenidos</h4>
+                        <p>La extracción elimina el exceso de agua rápidamente. El control inicial de humedad puede ser abierto (ventilar si afuera está más seco) o cerrado (usar deshumidificadores). Protege los contenidos inmediatamente, ya que suelen ser lo más valioso.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 6</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module6" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module6" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 6</button>
+                 </div>
+             </section>
+
+             <section id="module7" class="module-content">
+                 <details>
+                    <summary>Información Clave: Ciencia del Secado 1 (Psicrometría)</summary>
+                    <div>
+                        <h4>Introducción a la Ciencia del Secado</h4>
+                        <p>Se basa en dos categorías: las condiciones de secado (calor, aire seco, flujo de aire) y la estructura que se seca (materiales, ensamblajes). La frase clave es "calor, aire seco, flujo de aire hacia el agua".</p>
+                        <h4>Psicrometría - 3 Conceptos Clave</h4>
+                        <p>Entender la psicrometría implica saber: 1) cuánta agua puede contener el aire (depende de la temperatura), 2) qué porcentaje de esa capacidad está ocupado (humedad relativa), y 3) cuánta agua hay realmente en el aire (ratio de humedad/GPP, punto de rocío, presión de vapor).</p>
+                        <h4>El Diagrama Psicrométrico</h4>
+                        <p>Es una herramienta gráfica para calcular y entender las relaciones entre temperatura, humedad relativa y volumen de humedad (ratio de humedad, punto de rocío, presión de vapor) en el aire. Conociendo dos de estas métricas, puedes encontrar la tercera.</p>
+                        <h4>Evaporación y Presión de Vapor</h4>
+                        <p>La evaporación es más rápida cuanto mayor es la diferencia entre la presión de vapor del agua (aumenta con la temperatura del agua) y la presión de vapor del aire (disminuye al secar el aire). Calentar materiales húmedos y secar el aire maximiza esta diferencia.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 7</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module7" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module7" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 7</button>
+                 </div>
+             </section>
+
+             <section id="module8" class="module-content">
+                 <details>
+                    <summary>Información Clave: Ciencia del Secado 2 (Materiales)</summary>
+                    <div>
+                        <h4>Materiales y Ensamblajes</h4>
+                        <p>El secado depende de la porosidad (cuánta agua puede retener un material) y la permeancia (con qué facilidad pasa el vapor a través de él). También hay que considerar las capas y vacíos en los ensamblajes. El objetivo es llevar las condiciones de secado (calor, aire seco, flujo de aire) hasta donde el agua pueda escapar.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 8</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module8" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module8" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 8</button>
+                 </div>
+             </section>
+
+             <section id="module9" class="module-content">
+                 <details>
+                    <summary>Información Clave: Clase de Agua</summary>
+                    <div>
+                        <h4>Clase de Agua</h4>
+                        <p>Estima la tasa de evaporación esperada para determinar la cantidad inicial de deshumidificadores necesarios. Clase 1 es la menor evaporación, Clase 3 la mayor, y Clase 4 implica materiales difíciles de secar. Controlar la humedad es clave para evitar daños secundarios por alta humedad (>60% RH según S500, aunque el texto original decía 70%).</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 9</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module9" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module9" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 9</button>
+                 </div>
+             </section>
+
+             <section id="module10" class="module-content">
+                 <details>
+                    <summary>Información Clave: Movimiento del Aire</summary>
+                    <div>
+                        <h4>Movimiento del Aire</h4>
+                        <p>El flujo de aire rápido es crucial para barrer el vapor fuera de los ensamblajes y transferir energía (calor) a los materiales húmedos, acelerando la evaporación. La velocidad del aire genera presión, forzando el aire seco a entrar y el húmedo a salir.</p>
+                        <h4>Configuración de Motores de Aire</h4>
+                        <p>Colocar el número correcto de motores de aire, en la ubicación y ángulo adecuados es fundamental. El objetivo es lograr un flujo de aire rápido sobre todas las superficies húmedas para barrer el vapor y transferir calor. Las fórmulas del S500 ayudan a determinar la cantidad inicial necesaria.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 10</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module10" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module10" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 10</button>
+                 </div>
+             </section>
+
+             <section id="module11" class="module-content">
+                 <details>
+                    <summary>Información Clave: Equipos y Medidores</summary>
+                    <div>
+                        <h4>Herramientas y Equipos de Restauración</h4>
+                        <p>Se dividen en seguridad (PPE), equipos de secado (extractores, deshumidificadores, motores de aire) y consumibles (cinta, plástico). Es fundamental organizar y asegurar el equipo.</p>
+                        <h4>Termohigrómetros, Medidores de Humedad y Cámaras Infrarrojas</h4>
+                        <p>Estas herramientas son vitales para determinar el perímetro del daño, el contenido de humedad de los materiales y las condiciones de secado. Incluyen sensores de humedad, medidores sin clavija (nivel de humedad), medidores con clavija (porcentaje de humedad), termómetros IR (temperatura superficial) y cámaras IR (visualización de temperatura superficial).</p>
+                         <h4>Gestión de Energía</h4>
+                        <p>El equipo de secado consume mucha energía. Es necesario calcular los amperios totales requeridos por el equipo y verificar la capacidad eléctrica del edificio (disyuntores, circuitos) para distribuir la carga de forma segura y evitar sobrecargas. Si la energía del edificio es insuficiente, se pueden usar cajas de distribución de energía (conectadas a 240V) o generadores.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 11</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module11" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module11" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 11</button>
+                 </div>
+             </section>
+
+             <section id="module12" class="module-content">
+                 <details>
+                    <summary>Información Clave: Descontaminación</summary>
+                    <div>
+                        <h4>Remoción Controlada de Materiales</h4>
+                        <p>El objetivo es mitigar el daño removiendo la menor cantidad de material posible. No intentes secar materiales no restaurables o no descontaminables. Realiza cortes limpios y considera cómo se reemplazarán los materiales.</p>
+                        <h4>Minimizar la Aerosolización de Partículas</h4>
+                        <p>Limpia antes de encender los motores de aire y filtra el aire durante el secado para reducir partículas en el aire. Usa filtros HEPA y calcula la cantidad de dispositivos de filtración de aire (AFD) necesarios según los cambios de aire por hora (ACH) deseados.</p>
+                        <h4>Visión General de Agua Cat 2 y 3</h4>
+                        <p>Ambas son contaminadas y requieren descontaminación antes del secado. Prioriza la seguridad con PPE. Contén el área (barreras físicas y flujo de aire negativo). Remueve materiales porosos saturados (acolchado, aislamiento, paneles de yeso), limpia escombros, aplica detergente, enjuaga/extrae y aplica biocida (con consentimiento).</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 12</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module12" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module12" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 12</button>
+                 </div>
+             </section>
+
+             <section id="module13" class="module-content">
+                 <details>
+                    <summary>Información Clave: Escenarios Específicos</summary>
+                    <div>
+                        <h4>Secado de Pisos de Madera Maciza</h4>
+                        <p>Se aplica específicamente a madera maciza sobre subsuelo de madera. Se usan paneles de secado conectados a un sistema de vacío para forzar el aire a moverse entre las tablas y el subsuelo. Contener el aire procesado (cálido y seco) sobre y bajo el piso acelera el proceso.</p>
+                        <h4>Secado de Ensamblajes Aislados</h4>
+                        <p>Requiere llevar aire caliente y seco al agua atrapada. Considera los componentes (madera, acero, tipo de aislante, barreras de vapor, paneles de yeso). Las estrategias van desde remover todo lo húmedo (más destructivo), ventilar con agujeros, hasta inyectar aire en la cavidad (menos destructivo).</p>
+                        <h4>Secado de Sótanos ('Crawlspaces')</h4>
+                        <p>El objetivo principal es secar la estructura del sótano. Extrae el agua estancada, instala una barrera de vapor sobre el suelo húmedo para detener la evaporación del suelo, y crea una cámara de secado con deshumidificadores, motores de aire y calor si es necesario.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 13</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module13" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module13" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 13</button>
+                 </div>
+             </section>
+
+             <section id="module14" class="module-content">
+                 <details>
+                    <summary>Información Clave: Monitoreo</summary>
+                    <div>
+                        <h4>Monitoreo y Documentación</h4>
+                        <p>Es esencial registrar diariamente las condiciones psicrométricas (temperatura, HR, GPP, punto de rocío, presión de vapor) y el contenido de humedad de los materiales. Esto permite evaluar el progreso ("¿Está secando?"), ajustar la estrategia y saber cuándo se alcanzan los objetivos de secado.</p>
+                    </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 14</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module14" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module14" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 14</button>
+                 </div>
+             </section>
+
+             <section id="module15" class="module-content">
+                 <details>
+                    <summary>Información Clave: Repaso y Fórmulas</summary>
+                    <div>
+                        <h4>Control de Humedad para el Secado</h4>
+                        <p>Implica eliminar el vapor de agua del aire, ya sea mediante secado abierto (ventilar) o cerrado (usar deshumidificadores). El aire más seco acelera el secado y reduce daños. Los deshumidificadores LGR son los más comunes y eficientes entre 70-90°F.</p>
+                        <h4>Configuración de Deshumidificadores</h4>
+                        <p>Se usan para calentar y secar el aire dentro de cámaras de secado (áreas delimitadas para concentrar el secado). El cálculo inicial de deshumidificadores se basa en la Clase de Agua y el volumen del área, buscando que la tasa de deshumidificación supere la de evaporación.</p>
+                        <h4>Control de Temperatura</h4>
+                        <p>Es necesario gestionar tanto la temperatura del aire como la de los materiales. Se puede calentar para acelerar la evaporación (directamente o calentando el aire) y mantener el aire entre 70-90°F para la eficiencia de los deshumidificadores LGR. Usa primero el HVAC del edificio si es posible.</p>
+                        </div>
+                </details>
+                 <div class="quiz-section">
+                    <hr class="my-6 border-gray-300">
+                    <h3 class="text-xl font-semibold mb-4">Autoevaluación: Módulo 15</h3>
+                    <div class="quiz-container"></div>
+                    <div id="quiz-module-score-module15" class="quiz-module-score" style="display: none;">Puntuación del Módulo: 0 / 0</div>
+                    <button id="reset-module-quiz-module15" class="reset-button" style="display: none;">Reiniciar Quiz Módulo 15</button>
+                 </div>
+             </section>
+
+            <section id="module16" class="module-content">
+                <h2 class="text-2xl font-semibold mb-4">Módulo 16: Test Final (Preguntas y Respuestas)</h2>
+                <p class="mb-6 text-gray-600">Repasa estas preguntas clave. Haz clic en el botón para revelar la respuesta.</p>
+                <div id="final-test-container">
+                    </div>
+            </section>
+
+            <div id="initial-message" class="text-center text-gray-500 mt-10">
+                Selecciona un módulo del menú de la izquierda para comenzar.
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // --- Datos del Quiz (Módulos 1-15 - Textos corregidos) ---
+        const quizData = {
+            // --- MÓDULO 1: INTRODUCCIÓN ---
+            module1: [
+                { question: "¿Cuál es el curso de acción más crítico mencionado para el secado restaurativo?", options: ["Documentar todo", "Contactar al seguro", "La respuesta rápida", "Establecer contención"], correctAnswer: "La respuesta rápida", explanation: "La respuesta rápida es crucial para minimizar el daño secundario y prevenir el crecimiento microbiano." },
+                { question: "¿Cuál es el objetivo principal de un restaurador en un proyecto de daño por agua?", options: ["Facturar lo máximo posible", "Secar la estructura lo más rápido posible", "Devolver la estructura a condición pre-pérdida, segura y seca", "Vender servicios adicionales"], correctAnswer: "Devolver la estructura a condición pre-pérdida, segura y seca", explanation: "El objetivo es restaurar la propiedad a su estado anterior al daño, asegurando que sea segura y funcional." },
+                { question: "¿Qué significa mitigación en el contexto de la restauración?", options: ["La limpieza final", "El proceso de secado completo", "Acciones para prevenir daños mayores y reducir la extensión de la pérdida", "La negociación con el seguro"], correctAnswer: "Acciones para prevenir daños mayores y reducir la extensión de la pérdida", explanation: "La mitigación implica acciones inmediatas para estabilizar la situación y evitar que empeore." },
+                { question: "¿Qué organización establece el estándar de cuidado (S500) para la restauración de daños por agua?", options: ["EPA", "OSHA", "FEMA", "IICRC"], correctAnswer: "IICRC", explanation: "El IICRC (Institute of Inspection Cleaning and Restoration Certification) desarrolla y publica los estándares reconocidos en la industria." },
+                { question: "La falta de una respuesta rápida puede llevar a:", options: ["Menores costos", "Crecimiento microbiano", "Menos daño estructural", "Mejor cobertura del seguro"], correctAnswer: "Crecimiento microbiano", explanation: "La demora permite que la humedad persista, creando condiciones ideales para el crecimiento de moho y bacterias." },
+                { question: "Devolver una estructura a condición 'pre-pérdida' implica que esté:", options: ["Solo seca", "Solo segura", "Solo funcional", "Segura, seca y funcional como antes"], correctAnswer: "Segura, seca y funcional como antes", explanation: "El objetivo es una restauración completa a la condición original en todos los aspectos relevantes." }
+            ],
+            // --- MÓDULO 2: SEGURIDAD ---
+            module2: [
+                { question: "¿Cuál es la primera preocupación en cada pérdida por agua?", options: ["El costo", "La velocidad del secado", "La seguridad", "La documentación"], correctAnswer: "La seguridad", explanation: "La seguridad de los ocupantes y los técnicos es siempre la prioridad número uno antes de iniciar cualquier trabajo." },
+                { question: "Un peligro común asociado con estructuras dañadas por agua es:", options: ["Exceso de luz solar", "Baja humedad", "Peligros eléctricos", "Falta de polvo"], correctAnswer: "Peligros eléctricos", explanation: "La combinación de agua y electricidad crea un riesgo significativo de electrocución." },
+                { question: "¿Por qué es esencial usar el EPP (Equipo de Protección Personal) apropiado?", options: ["Para cumplir regulaciones solamente", "Para protegerse de peligros identificados", "Para parecer profesional", "Para mantener el calor"], correctAnswer: "Para protegerse de peligros identificados", explanation: "El EPP protege contra riesgos específicos como contaminantes, objetos punzantes o peligros eléctricos." },
+                { question: "Según la Jerarquía de Controles, ¿cuál es el método MÁS efectivo?", options: ["EPP", "Controles Administrativos", "Controles de Ingeniería", "Eliminación"], correctAnswer: "Eliminación", explanation: "Eliminar físicamente el peligro es la forma más efectiva de controlar un riesgo." },
+                { question: "Un ejemplo de Control de Ingeniería en WRT es:", options: ["Usar guantes", "Seguir un procedimiento", "Instalar una barrera de contención", "Poner una señal de advertencia"], correctAnswer: "Instalar una barrera de contención", explanation: "Los controles de ingeniería modifican el entorno para aislar el peligro, como una barrera que contiene la contaminación." },
+                { question: "Según las regulaciones de protección respiratoria, ¿qué debe proporcionar el empleador como mínimo?", options: ["Una mascarilla de papel", "Un respirador ajustado y capacitación", "Acceso a aire fresco", "Un ventilador"], correctAnswer: "Un respirador ajustado y capacitación", explanation: "OSHA requiere que los empleadores proporcionen respiradores adecuados, pruebas de ajuste y capacitación sobre su uso." },
+                { question: "Antes de entrar a un espacio confinado afectado por agua, ¿qué se debe hacer primero?", options: ["Empezar a extraer agua", "Ventilar y probar la atmósfera", "Tomar fotos", "Llamar al cliente"], correctAnswer: "Ventilar y probar la atmósfera", explanation: "Los espacios confinados pueden tener atmósferas peligrosas (falta de oxígeno, gases tóxicos) que deben evaluarse antes de entrar." }
+            ],
+             // --- MÓDULO 3: IICRC y Estándares ---
+            module3: [
+                { question: "¿Cómo se llama el estándar de cuidado del IICRC para la restauración de daños por agua?", options: ["ISO 9001", "Guía de Seguridad OSHA", "ANSI/IICRC S500", "Manual de WRT"], correctAnswer: "ANSI/IICRC S500", explanation: "El S500 es el estándar específico y reconocido para la restauración profesional de daños por agua." },
+                { question: "En el S500, el término 'Shall' ('Deberá') indica que una práctica es:", options: ["Opcional", "Recomendada", "Aconsejada", "Obligatoria"], correctAnswer: "Obligatoria", explanation: "'Shall' significa que la práctica es un requisito mandatorio del estándar." },
+                { question: "En el S500, el término 'Should' ('Debería') indica que una práctica es:", options: ["Obligatoria", "La práctica estándar recomendada", "Permisible", "Opcional"], correctAnswer: "La práctica estándar recomendada", explanation: "'Should' indica una recomendación fuerte, considerada la norma de la industria, aunque se permite una desviación justificada." },
+                { question: "¿Cuál de estos términos indica permisividad o posibilidad dentro del estándar?", options: ["Shall (Deberá)", "Should (Debería)", "Recommend (Recomendar)", "May / Can (Puede)"], correctAnswer: "May / Can (Puede)", explanation: "'May' y 'Can' describen acciones que están permitidas pero no son obligatorias ni específicamente recomendadas." },
+                { question: "El 'estándar de cuidado' se basa en:", options: ["Opiniones personales", "Lo que sea más barato", "Prácticas actuales y razonables aceptadas en la industria", "Regulaciones gubernamentales únicamente"], correctAnswer: "Prácticas actuales y razonables aceptadas en la industria", explanation: "El estándar de cuidado refleja lo que un profesional prudente haría en circunstancias similares, basado en el conocimiento y prácticas actuales." },
+                { question: "Desviarse de una práctica marcada con 'Should' ('Debería') en el S500 requiere:", options: ["Nada, es solo una sugerencia", "Permiso del cliente", "Juicio profesional y justificación documentada", "Aprobación del IICRC"], correctAnswer: "Juicio profesional y justificación documentada", explanation: "Aunque no es mandatorio como 'Shall', desviarse de 'Should' debe basarse en una razón profesional válida y documentarse." }
+            ],
+            // --- MÓDULO 4: MICROBIOLOGÍA ---
+            module4: [
+                { question: "El agua de Categoría 1 se considera:", options: ["Altamente contaminada", "Significativamente contaminada", "Limpia (de fuente sanitaria)", "Agua gris"], correctAnswer: "Limpia (de fuente sanitaria)", explanation: "La Categoría 1 proviene de una fuente limpia y no presenta un riesgo inicial significativo." },
+                { question: "Una fuente típica de agua de Categoría 3 es:", options: ["Una tubería de agua potable rota", "La descarga de una lavadora", "El reflujo de aguas residuales", "La lluvia limpia"], correctAnswer: "El reflujo de aguas residuales", explanation: "Las aguas residuales (agua negra) están gravemente contaminadas y siempre son Categoría 3." },
+                { question: "Las tres 'Condiciones' relacionadas con el moho en el S500 se refieren a:", options: ["Temperatura, Humedad, Luz", "Limpieza inicial, secado, reparación", "La extensión del área de crecimiento de moho visible", "Si el crecimiento es visible, oculto o en el sistema HVAC"], correctAnswer: "La extensión del área de crecimiento de moho visible", explanation: "Condición 1 (<10 pies²), Condición 2 (10-100 pies²), Condición 3 (>100 pies²) se refieren al área afectada por el moho." },
+                { question: "¿Cuál de estos NO es uno de los cinco requisitos para el crecimiento de moho?", options: ["Fuente de humedad", "Nutrientes (alimento)", "Temperatura adecuada", "Oscuridad total"], correctAnswer: "Oscuridad total", explanation: "El moho necesita humedad, nutrientes, temperatura adecuada, esporas y tiempo. No requiere oscuridad total, aunque la luz UV puede inhibirlo." },
+                { question: "¿Qué puede causar que el agua de Categoría 1 se degrade a Categoría 2 o 3?", options: ["El contacto con contaminantes y el paso del tiempo", "La evaporación rápida", "La filtración", "La adición de cloro"], correctAnswer: "El contacto con contaminantes y el paso del tiempo", explanation: "El agua limpia puede contaminarse al tocar superficies sucias o al permitir el crecimiento bacteriano con el tiempo." },
+                { question: "El agua que contiene una contaminación significativa y puede causar malestar o enfermedad se clasifica como:", options: ["Categoría 1", "Categoría 2", "Categoría 3", "Agua destilada"], correctAnswer: "Categoría 2", explanation: "La Categoría 2 (agua gris) tiene contaminantes pero no se considera gravemente contaminada como la Categoría 3." },
+                { question: "La presencia de sustancias indeseadas en un ambiente se define como:", options: ["Humedad", "Psicrometría", "Contaminación", "Mitigación"], correctAnswer: "Contaminación", explanation: "La contaminación es la introducción de cualquier sustancia no deseada, ya sea química, física o biológica." }
+            ],
+            // --- MÓDULO 5: INSPECCIÓN INICIAL ---
+            module5: [
+                { question: "¿Cuál es la primera responsabilidad del técnico al llegar a un sitio dañado por agua?", options: ["Empezar a secar", "Evaluar y asegurar la seguridad del sitio", "Obtener el pago", "Llamar al seguro"], correctAnswer: "Evaluar y asegurar la seguridad del sitio", explanation: "Antes de cualquier otra acción, se debe identificar y controlar cualquier peligro inmediato." },
+                { question: "¿Cómo se identifica el 'borde' de la migración del agua en superficies alfombradas?", options: ["Solo por el color", "Usando un medidor de humedad (con o sin clavijas) o sensor de humedad", "Midiendo la temperatura", "Estimando visualmente"], correctAnswer: "Usando un medidor de humedad (con o sin clavijas) o sensor de humedad", explanation: "Los medidores son esenciales para detectar la humedad que no es visible o táctil." },
+                { question: "¿Por qué es importante documentar las condiciones preexistentes?", options: ["Para aumentar la factura", "Para proteger al restaurador de reclamaciones por daños no relacionados", "No es importante", "Para impresionar al cliente"], correctAnswer: "Para proteger al restaurador de reclamaciones por daños no relacionados", explanation: "Documentar daños anteriores ayuda a aclarar qué daños fueron causados por el incidente actual." },
+                { question: "¿Qué instrumento mide la temperatura y la humedad relativa del aire?", options: ["Sensor de humedad", "Medidor de humedad con clavijas", "Cámara IR", "Termohigrómetro"], correctAnswer: "Termohigrómetro", explanation: "El termohigrómetro es fundamental para medir las condiciones ambientales (psicrometría)." },
+                { question: "Un mapa de humedad debe documentar:", options: ["Solo las áreas visiblemente mojadas", "El alcance de la migración de humedad en todos los materiales afectados", "La ubicación de los muebles", "La marca del deshumidificador"], correctAnswer: "El alcance de la migración de humedad en todos los materiales afectados", explanation: "El mapa de humedad define gráficamente dónde ha llegado el agua en paredes, pisos y techos." },
+                { question: "¿Cuándo debe firmarse un contrato o autorización de trabajo?", options: ["Al finalizar el trabajo", "Antes de iniciar cualquier trabajo no urgente", "Solo si el cliente lo pide", "Nunca es necesario"], correctAnswer: "Antes de iniciar cualquier trabajo no urgente", explanation: "Es crucial obtener autorización escrita antes de comenzar la mitigación o restauración para asegurar el acuerdo y el pago." },
+                { question: "Una cámara Infrarroja (IR) detecta principalmente:", options: ["Humedad directamente", "Moho", "Diferencias de temperatura en superficies", "Corrientes de aire"], correctAnswer: "Diferencias de temperatura en superficies", explanation: "Las cámaras IR detectan el enfriamiento evaporativo, que puede indicar la presencia de humedad, pero debe confirmarse con un medidor de humedad." }
+            ],
+             // --- MÓDULO 6: PRIMEROS PASOS ---
+            module6: [
+                { question: "¿Cuál es el objetivo principal de la extracción inicial de agua?", options: ["Limpiar la alfombra", "Remover la mayor cantidad de agua posible en estado líquido", "Iniciar la deshumidificación", "Enfriar el área"], correctAnswer: "Remover la mayor cantidad de agua posible en estado líquido", explanation: "Extraer agua líquida es mucho más eficiente que evaporarla, acelerando significativamente el proceso." },
+                { question: "¿Cuál es la forma más eficaz de acelerar el proceso de secado DESPUÉS de la extracción?", options: ["Abrir las ventanas", "Usar ventiladores de techo", "Instalar deshumidificadores y sopladores de aire", "Esperar a que se seque solo"], correctAnswer: "Instalar deshumidificadores y sopladores de aire", explanation: "El control activo de la humedad (deshumidificación) y la evaporación (movimiento de aire) es clave." },
+                { question: "¿Cuándo se puede utilizar el secado abierto para el control inicial de la humedad?", options: ["Siempre es la mejor opción", "Cuando el aire exterior tiene menor humedad específica (GPP) que el interior", "Cuando hay agua de Categoría 3", "Cuando no hay electricidad"], correctAnswer: "Cuando el aire exterior tiene menor humedad específica (GPP) que el interior", explanation: "El secado abierto funciona si el aire exterior es más seco que el interior y no introduce otros problemas (contaminación, seguridad, etc.)." },
+                { question: "¿Cuándo es el secado cerrado la única opción viable para el control de la humedad?", options: ["Nunca", "Cuando el aire exterior tiene mayor humedad específica (GPP) que el interior", "Cuando solo hay agua de Categoría 1", "Si el cliente prefiere ventanas cerradas"], correctAnswer: "Cuando el aire exterior tiene mayor humedad específica (GPP) que el interior", explanation: "Si el aire exterior está más húmedo, introducirlo empeoraría el problema, haciendo necesario el secado cerrado con deshumidificadores." },
+                { question: "El agua extraída de una pérdida de Categoría 2 o 3 debe manejarse como:", options: ["Agua limpia, se puede verter en el jardín", "Agua residual contaminada", "Agua reciclable", "Agua potable"], correctAnswer: "Agua residual contaminada", explanation: "Debido a la contaminación, el agua extraída de Cat 2/3 debe eliminarse adecuadamente según las regulaciones locales (generalmente en un desagüe sanitario)." },
+                { question: "Usar una varilla extractora ('wand') sobre una alfombra es un ejemplo de:", options: ["Deshumidificación", "Movimiento de aire", "Extracción de agua superficial", "Secado subsuperficial"], correctAnswer: "Extracción de agua superficial", explanation: "Las varillas ('wands') son herramientas comunes para extraer agua líquida de la superficie de las alfombras." }
+            ],
+            // --- MÓDULO 7: CIENCIA DEL SECADO 1 ---
+            module7: [
+                { question: "¿Cuáles son los 3 conceptos centrales de la psicrometría mencionados?", options: ["Calor, Frío, Templado", "Presión, Volumen, Temperatura", "Capacidad de retención, Porcentaje de llenado, Cantidad real de agua", "Evaporación, Condensación, Saturación"], correctAnswer: "Capacidad de retención, Porcentaje de llenado, Cantidad real de agua", explanation: "Estos conceptos ayudan a entender cuánta humedad puede contener el aire (capacidad), cuánta tiene realmente (porcentaje llenado/HR) y la cantidad absoluta (cantidad real/GPP)." },
+                { question: "¿Qué métrica mide la cantidad real de agua en el aire, expresada en granos por libra (GPP)?", options: ["Humedad Relativa (HR)", "Punto de Rocío", "Humedad Específica (GPP)", "Presión de Vapor"], correctAnswer: "Humedad Específica (GPP)", explanation: "GPP (Grains Per Pound) o humedad específica mide la masa real de vapor de agua por masa de aire seco, independientemente de la temperatura." },
+                { question: "¿Qué ocurre cuando la temperatura de una superficie es más baja que el punto de rocío del aire circundante?", options: ["La superficie se calienta", "El aire se seca", "Se produce condensación en la superficie", "Aumenta la presión de vapor"], correctAnswer: "Se produce condensación en la superficie", explanation: "El punto de rocío es la temperatura a la cual el aire se satura y el vapor de agua se condensa en líquido." },
+                { question: "¿Qué representa la diferencia de presión de vapor entre el agua en un material húmedo y el aire circundante?", options: ["La temperatura del aire", "El potencial de evaporación", "La humedad relativa", "El punto de rocío"], correctAnswer: "El potencial de evaporación", explanation: "El agua se evapora y se mueve de un área de mayor presión de vapor (material húmedo) a una de menor presión de vapor (aire más seco). La diferencia impulsa la evaporación." },
+                { question: "¿Cómo influye la temperatura del material en la evaporación?", options: ["No tiene influencia", "Materiales más fríos evaporan más rápido", "Materiales más cálidos evaporan más rápido", "Solo la temperatura del aire importa"], correctAnswer: "Materiales más cálidos evaporan más rápido", explanation: "Una mayor temperatura en el material significa mayor energía y mayor presión de vapor dentro del material, acelerando la evaporación hacia el aire (si este tiene menor presión de vapor)." },
+                { question: "La Humedad Relativa (HR) es una medida de:", options: ["La cantidad total de agua en el aire", "Cuánta humedad contiene el aire en comparación con su capacidad máxima a esa temperatura", "La temperatura a la que se forma rocío", "La presión del vapor de agua"], correctAnswer: "Cuánta humedad contiene el aire en comparación con su capacidad máxima a esa temperatura", explanation: "La HR es un porcentaje que indica qué tan 'lleno' está el aire de humedad respecto a su punto de saturación a la temperatura actual." }
+            ],
+            // --- MÓDULO 8: CIENCIA DEL SECADO 2 ---
+            module8: [
+                { question: "La 'Permeancia' de un material se refiere a su:", options: ["Resistencia al flujo de aire", "Capacidad de absorber agua líquida", "Facilidad para permitir el paso del vapor de agua", "Resistencia al calor"], correctAnswer: "Facilidad para permitir el paso del vapor de agua", explanation: "La permeancia mide qué tan fácilmente el vapor de agua puede difundirse a través de un material. Materiales con baja permeancia (perms bajos) retardan el secado." },
+                { question: "La 'Porosidad' de un material se relaciona con:", options: ["Su color", "La cantidad de pequeños agujeros o espacios vacíos que contiene", "Su resistencia al vapor", "Su peso"], correctAnswer: "La cantidad de pequeños agujeros o espacios vacíos que contiene", explanation: "La porosidad afecta la capacidad de un material para absorber y retener agua líquida." },
+                { question: "¿Por qué es más complejo el secado de ensambles (como paredes con aislamiento)?", options: ["Porque siempre involucran Categoría 3", "Porque las múltiples capas y los espacios vacíos pueden atrapar humedad y restringir el flujo de aire/vapor", "Porque los materiales son siempre no porosos", "Porque requieren más calor"], correctAnswer: "Porque las múltiples capas y los espacios vacíos pueden atrapar humedad y restringir el flujo de aire/vapor", explanation: "Las diferentes capas (drywall, barrera de vapor, aislamiento, revestimiento) tienen diferentes propiedades y pueden impedir que la humedad salga fácilmente." },
+                { question: "Un ejemplo de material con BAJA permeancia (Clase I o II - retardador de vapor) es:", options: ["Drywall sin pintar", "Alfombra", "Aislamiento de fibra de vidrio", "Lámina de polietileno (plástico) o pintura brillante"], correctAnswer: "Lámina de polietileno (plástico) o pintura brillante", explanation: "Estos materiales restringen significativamente el paso del vapor de agua, pudiendo atrapar humedad detrás de ellos." },
+                { question: "Un ejemplo de material con ALTA permeancia (Clase III - permeable al vapor) es:", options: ["Baldosa cerámica", "Revestimiento de vinilo", "Drywall sin pintar o aislamiento de fibra de vidrio", "Espejo"], correctAnswer: "Drywall sin pintar o aislamiento de fibra de vidrio", explanation: "Estos materiales permiten que el vapor de agua pase a través de ellos con relativa facilidad, facilitando el secado." },
+                { question: "¿Cómo afecta una barrera de vapor en una pared al proceso de secado?", options: ["Lo acelera siempre", "No tiene efecto", "Puede atrapar la humedad dentro de la cavidad de la pared, requiriendo técnicas especiales", "Hace que la pared sea impermeable"], correctAnswer: "Puede atrapar la humedad dentro de la cavidad de la pared, requiriendo técnicas especiales", explanation: "La barrera de vapor impide que la humedad salga de la cavidad, necesitando a menudo perforaciones o secado por inyección." }
+            ],
+            // --- MÓDULO 9: CLASE DE AGUA ---
+            module9: [
+                { question: "¿Para qué se utiliza principalmente la Clase de agua en la planificación inicial?", options: ["Para determinar la Categoría de agua", "Para estimar la tasa de evaporación esperada y las necesidades iniciales de deshumidificación", "Para decidir el tipo de EPP", "Para calcular el costo del trabajo"], correctAnswer: "Para estimar la tasa de evaporación esperada y las necesidades iniciales de deshumidificación", explanation: "La Clase de agua (1-4) indica cuánta agua se espera que se evapore, lo que guía el cálculo de cuánta capacidad de deshumidificación se necesita." },
+                { question: "¿Cuál es el principio clave al dimensionar la deshumidificación inicial?", options: ["Usar tantos deshumidificadores como sea posible", "La capacidad de deshumidificación debe ser igual o mayor que la tasa de evaporación estimada", "Basarse solo en los pies cuadrados", "Esperar 24 horas antes de decidir"], correctAnswer: "La capacidad de deshumidificación debe ser igual o mayor que la tasa de evaporación estimada", explanation: "Se necesita suficiente capacidad para eliminar la humedad que se evapora del ambiente y mantener condiciones de secado." },
+                { question: "¿Cómo se mide típicamente el rendimiento de los deshumidificadores Refrigerantes (Convencional y LGR)?", options: ["En CFM (pies cúbicos por minuto)", "En PPD (pintas por día) en condiciones AHAM", "En Grados de enfriamiento", "En Perms"], correctAnswer: "En PPD (pintas por día) en condiciones AHAM", explanation: "PPD indica cuánta agua pueden remover en 24 horas bajo condiciones estándar AHAM (80°F/60% HR)." },
+                { question: "¿Qué tipo de deshumidificador es más eficiente a bajas temperaturas y baja humedad?", options: ["Refrigerante Convencional", "LGR (Low Grain Refrigerant)", "Desecante", "Todos son iguales"], correctAnswer: "Desecante", explanation: "Los desecantes no dependen de enfriar el aire por debajo del punto de rocío, por lo que funcionan bien en ambientes fríos o muy secos donde los refrigerantes pierden eficiencia." },
+                { question: "Los 'Factores de Tabla' ('Chart Factors') en los cálculos del S500 ayudan a ajustar las necesidades de deshumidificación basadas en:", options: ["La marca del equipo", "El tamaño de la habitación (pies cúbicos) y la Clase de agua", "El color de la alfombra", "La hora del día"], correctAnswer: "El tamaño de la habitación (pies cúbicos) y la Clase de agua", explanation: "Estos factores, multiplicados por los pies cúbicos, dan una estimación inicial de los PPD requeridos según la Clase." },
+                { question: "Un deshumidificador LGR (Low Grain Refrigerant) es una versión mejorada del refrigerante convencional porque:", options: ["Usa menos electricidad", "Es más pequeño", "Puede seguir eliminando humedad eficientemente a humedades relativas y GPP más bajos", "No necesita mantenimiento"], correctAnswer: "Puede seguir eliminando humedad eficientemente a humedades relativas y GPP más bajos", explanation: "Los LGR están diseñados para enfriar más el aire, permitiéndoles condensar agua incluso cuando el aire ya está bastante seco." }
+            ],
+            // --- MÓDULO 10: MOVIMIENTO DEL AIRE ---
+            module10: [
+                { question: "¿Cuáles son las dos formas principales en que el flujo de aire (movimiento de aire) ayuda al secado?", options: ["Enfriando el aire y añadiendo humedad", "Barriendo la capa de aire saturado (límite) y transfiriendo energía (calor) a los materiales", "Filtrando el aire y eliminando olores", "Creando presión positiva y negativa"], correctAnswer: "Barriendo la capa de aire saturado (límite) y transfiriendo energía (calor) a los materiales", explanation: "El flujo de aire reemplaza el aire húmedo cerca de la superficie con aire más seco (facilitando la evaporación) y le entrega calor para energizar la evaporación." },
+                { question: "¿Cuál es la recomendación inicial del S500 para la cantidad de sopladores de aire en una habitación afectada?", options: ["Uno por cada esquina", "Uno por cada 50-70 pies cuadrados de piso afectado", "Tantos como quepan", "Depende del color de las paredes"], correctAnswer: "Uno por cada 50-70 pies cuadrados de piso afectado", explanation: "Esta es una regla general inicial; también se considera uno cada 10-16 pies lineales de pared afectada y se ajusta por obstrucciones." },
+                { question: "Al calcular el número inicial de sopladores según los pies cuadrados, ¿qué área se considera?", options: ["El área total de la casa", "Solo el área del techo", "Los pies cuadrados de las superficies húmedas afectadas (pisos, paredes)", "El área de las ventanas"], correctAnswer: "Los pies cuadrados de las superficies húmedas afectadas (pisos, paredes)", explanation: "El cálculo se basa en el área que necesita secarse activamente." },
+                { question: "Para maximizar la evaporación, ¿hacia dónde deben dirigirse los sopladores de aire?", options: ["Hacia el techo", "Hacia las ventanas abiertas", "Directamente hacia las superficies húmedas, a menudo en un ángulo de 45°", "Unos contra otros"], correctAnswer: "Directamente hacia las superficies húmedas, a menudo en un ángulo de 45°", explanation: "Esto asegura que el flujo de aire barra la capa límite de humedad directamente sobre el material mojado." },
+                { question: "Un soplador de aire tipo 'Axial' se caracteriza por:", options: ["Ser muy silencioso", "Mover aire a alta presión", "Mover un gran volumen de aire a baja presión, ideal para flujo amplio", "Calentar el aire"], correctAnswer: "Mover un gran volumen de aire a baja presión, ideal para flujo amplio", explanation: "Los axiales son buenos para mover grandes cantidades de aire en espacios abiertos." },
+                { question: "Un soplador de aire tipo 'Centrífugo' (o 'Caracol') se caracteriza por:", options: ["Ser menos duradero", "Mover aire a mayor presión, útil para dirigir el flujo a áreas específicas o a través de ductos", "No usar electricidad", "Ser solo para enfriar"], correctAnswer: "Mover aire a mayor presión, útil para dirigir el flujo a áreas específicas o a través de ductos", explanation: "Los centrífugos generan más presión, lo que permite enfocar el aire o usarlo con accesorios como ductos." }
+            ],
+             // --- MÓDULO 11: EQUIPOS Y MEDIDORES ---
+            module11: [
+                { question: "Un 'Termohigrómetro' es un medidor que mide:", options: ["Solo temperatura", "Solo humedad del material", "Temperatura y Humedad Relativa del aire", "Presión atmosférica"], correctAnswer: "Temperatura y Humedad Relativa del aire", explanation: "Es esencial para monitorear las condiciones ambientales y calcular otras propiedades psicrométricas." },
+                { question: "Un medidor de humedad 'sin clavijas' ('Pinless') funciona detectando:", options: ["La temperatura de la superficie", "El flujo de aire", "Cambios en la señal de radiofrecuencia o campo electromagnético debidos a la humedad", "El color del material"], correctAnswer: "Cambios en la señal de radiofrecuencia o campo electromagnético debidos a la humedad", explanation: "Permite una lectura rápida y no destructiva, ideal para localizar áreas húmedas." },
+                { question: "Un medidor de humedad 'con clavijas' ('Pin') mide:", options: ["La humedad del aire", "La temperatura", "La resistencia eléctrica entre las clavijas, que se correlaciona con el contenido de humedad", "La permeancia"], correctAnswer: "La resistencia eléctrica entre las clavijas, que se correlaciona con el contenido de humedad", explanation: "Proporciona una lectura cuantitativa del contenido de humedad (%MC) en materiales como la madera y el drywall." },
+                { question: "¿Por qué es importante conocer los requisitos de energía del equipo (amperaje)?", options: ["Para calcular la factura eléctrica del cliente", "Para evitar sobrecargar los circuitos eléctricos del edificio", "No es importante", "Para saber cuánto pesa el equipo"], correctAnswer: "Para evitar sobrecargar los circuitos eléctricos del edificio", explanation: "Sumar el amperaje de todos los equipos en un circuito asegura que no exceda la capacidad del interruptor ('breaker'), previniendo disparos o incendios." },
+                { question: "¿Qué debe hacer si una pieza de equipo tiene el enchufe de tierra (tercera clavija redonda) roto o faltante?", options: ["Usarlo igual, no pasa nada", "Ponerle cinta adhesiva", "Retirarlo del servicio inmediatamente y repararlo/reemplazarlo", "Usar un adaptador"], correctAnswer: "Retirarlo del servicio inmediatamente y repararlo/reemplazarlo", explanation: "La clavija de tierra es una característica de seguridad crucial; usar equipo sin ella crea un grave riesgo eléctrico." },
+                { question: "Los sistemas de inyección de aire (ej., Injectidry, DriForce) se usan principalmente para secar:", options: ["Alfombras", "Grandes áreas abiertas", "Dentro de cavidades estructurales (paredes, techos, gabinetes)", "Exteriores"], correctAnswer: "Dentro de cavidades estructurales (paredes, techos, gabinetes)", explanation: "Estos sistemas fuerzan aire seco en espacios cerrados que son difíciles de secar con flujo de aire superficial." }
+            ],
+            // --- MÓDULO 12: DESCONTAMINACIÓN ---
+            module12: [
+                { question: "¿Qué Categorías de agua generalmente requieren una descontaminación significativa antes o durante el secado?", options: ["Solo Categoría 1", "Categoría 1 y 2", "Categoría 2 y 3", "Ninguna"], correctAnswer: "Categoría 2 y 3", explanation: "Debido a la presencia de contaminantes, Cat 2 (gris) y Cat 3 (negra) requieren limpieza y/o aplicación de biocidas según el S500." },
+                { question: "¿Qué tipo de materiales porosos generalmente deben eliminarse si se saturan con agua de Categoría 3?", options: ["Solo si huelen mal", "Ninguno, todo se puede limpiar", "Alfombra, cojín de alfombra, aislamiento, drywall", "Solo madera"], correctAnswer: "Alfombra, cojín de alfombra, aislamiento, drywall", explanation: "Debido a la alta contaminación y la dificultad de descontaminarlos completamente, el S500 generalmente requiere la eliminación de estos materiales porosos en Cat 3." },
+                { question: "Según los estándares, ¿cuándo se debería consultar con un Profesional Ambiental de Interiores (IEP)?", options: ["Nunca, el restaurador lo sabe todo", "Solo si el cliente es difícil", "En situaciones complejas como contaminación extensa, ocupantes sensibles o regulaciones específicas", "Para cada trabajo"], correctAnswer: "En situaciones complejas como contaminación extensa, ocupantes sensibles o regulaciones específicas", explanation: "Un IEP puede proporcionar una evaluación independiente, protocolos de remediación y verificación post-remediación en casos complicados." },
+                { question: "La contención (barreras físicas, presión negativa) se usa principalmente para:", options: ["Ocultar el desorden", "Acelerar el secado", "Prevenir la propagación de contaminantes (polvo, esporas) a áreas no afectadas", "Mantener el calor"], correctAnswer: "Prevenir la propagación de contaminantes (polvo, esporas) a áreas no afectadas", explanation: "La contención es crucial, especialmente con Cat 2/3 o moho, para proteger las áreas limpias." },
+                { question: "Los tres niveles de actividad biocida de la EPA, de más débil a más fuerte, son:", options: ["Limpiador, Desinfectante, Esterilizador", "Sanitizante, Desinfectante, Esterilizador", "Jabón, Cloro, Amoniaco", "Agua, Vinagre, Alcohol"], correctAnswer: "Sanitizante, Desinfectante, Esterilizador", explanation: "Los sanitizantes reducen bacterias, los desinfectantes matan la mayoría de bacterias y algunos virus/hongos, y los esterilizadores matan toda vida microbiana (raramente usados en WRT)." },
+                { question: "Antes de aplicar un biocida (desinfectante/sanitizante), ¿qué se debe hacer primero?", options: ["Secar completamente el área", "Limpiar a fondo la superficie", "Aplicar un sellador", "Ventilar el área"], correctAnswer: "Limpiar a fondo la superficie", explanation: "La suciedad y materia orgánica pueden inactivar los biocidas o proteger a los microbios. La limpieza previa es esencial para la efectividad." }
+            ],
+            // --- MÓDULO 13: ESCENARIOS ESPECÍFICOS ---
+            module13: [
+                { question: "¿Qué fenómeno ocurre comúnmente en los pisos de madera sólida cuando se mojan por debajo?", options: ["Se encogen", "Se decoloran permanentemente", "'Cupping' (los bordes se levantan)", "'Crowning' (el centro se levanta)"], correctAnswer: "'Cupping' (los bordes se levantan)", explanation: "La madera se expande más en la parte inferior húmeda, haciendo que los bordes de las tablas se levanten. 'Crowning' ocurre si se lija antes de secar completamente o por humedad superficial." },
+                { question: "¿Por qué es desafiante secar ensambles con aislamiento saturado?", options: ["El aislamiento no se moja", "El aislamiento húmedo pierde valor R y puede retener contaminantes/humedad por mucho tiempo", "El aislamiento siempre se seca rápido", "El aislamiento es inflamable"], correctAnswer: "El aislamiento húmedo pierde valor R y puede retener contaminantes/humedad por mucho tiempo", explanation: "El aislamiento mojado es ineficaz térmicamente y actúa como una esponja, requiriendo a menudo remoción o técnicas de secado por inyección." },
+                { question: "Uno de los mayores desafíos al secar espacios de acceso ('crawlspaces') es a menudo:", options: ["Demasiada luz", "El acceso limitado y las condiciones potencialmente peligrosas", "La falta de materiales para secar", "Que se secan muy rápido"], correctAnswer: "El acceso limitado y las condiciones potencialmente peligrosas", explanation: "Los 'crawlspaces' suelen ser estrechos, oscuros, sucios y pueden tener plagas, cableado expuesto u otros peligros." },
+                { question: "Una técnica común para secar pisos de madera desde arriba es usar:", options: ["Sopladores axiales solamente", "Deshumidificadores desecantes", "Paneles de secado al vacío ('Floor Drying Mats')", "Calentadores infrarrojos"], correctAnswer: "Paneles de secado al vacío ('Floor Drying Mats')", explanation: "Estos paneles sellan sobre el piso y usan succión para extraer vapor de agua directamente de las tablas y juntas." },
+                { question: "Al secar una pared con aislamiento y barrera de vapor en el interior, ¿qué técnica podría ser necesaria?", options: ["Solo poner sopladores en la habitación", "Calentar la pared desde afuera", "Hacer perforaciones y/o usar secado por inyección de aire", "Ignorar el aislamiento"], correctAnswer: "Hacer perforaciones y/o usar secado por inyección de aire", explanation: "Se necesita una forma de introducir aire seco o extraer aire húmedo de la cavidad atrapada por la barrera de vapor." },
+                { question: "En un 'crawlspace' encapsulado (con barrera de vapor en el suelo y paredes), ¿qué equipo es esencial?", options: ["Un calentador potente", "Un deshumidificador dedicado para controlar la humedad", "Muchos sopladores axiales", "Extractores de humo"], correctAnswer: "Un deshumidificador dedicado para controlar la humedad", explanation: "Incluso con una barrera de vapor, la humedad del suelo y el aire exterior puede entrar, necesitando deshumidificación continua para mantener condiciones secas." }
+            ],
+            // --- MÓDULO 14: MONITOREO ---
+            module14: [
+                { question: "¿Qué tres preguntas clave debe responder un restaurador al monitorear un proyecto?", options: ["¿Está limpio? ¿Huele bien? ¿Se ve bien?", "¿Está funcionando el equipo? ¿Está progresando el secado? ¿Está el proyecto dentro del objetivo?", "¿Pagó el cliente? ¿Está contento? ¿Firmó?", "¿Hace frío? ¿Hace calor? ¿Está húmedo?"], correctAnswer: "¿Está funcionando el equipo? ¿Está progresando el secado? ¿Está el proyecto dentro del objetivo?", explanation: "El monitoreo verifica que el equipo funcione, que los materiales se estén secando y si se alcanzarán las metas de secado a tiempo." },
+                { question: "¿Cómo se establecen normalmente los objetivos de secado ('Dry Standard') para un material?", options: ["Usando un valor fijo universal", "Midiendo el contenido de humedad de materiales similares no afectados en el mismo edificio", "Preguntándole al cliente", "Secando hasta que se vea seco"], correctAnswer: "Midiendo el contenido de humedad de materiales similares no afectados en el mismo edificio", explanation: "El objetivo es devolver el material húmedo a su contenido de humedad de equilibrio (EMC) normal, que se determina midiendo un material seco de referencia." },
+                { question: "Un contenido de humedad (MC) superior al 16-20% en madera estructural indica:", options: ["Que está completamente seco", "Que está en equilibrio con el aire normal", "Un nivel elevado que puede soportar crecimiento de moho y requiere secado", "Que la madera es de baja calidad"], correctAnswer: "Un nivel elevado que puede soportar crecimiento de moho y requiere secado", explanation: "Estos niveles (especialmente >20%) indican que hay suficiente humedad para potencialmente causar problemas como el moho o la pudrición." },
+                { question: "¿Qué información esencial debe incluir un Mapa de Humedad?", options: ["La marca de los medidores usados", "La ubicación de los muebles", "Una representación visual del alcance de la humedad en diferentes materiales y las lecturas iniciales", "El nombre del técnico"], correctAnswer: "Una representación visual del alcance de la humedad en diferentes materiales y las lecturas iniciales", explanation: "El mapa muestra dónde estaba mojado inicialmente y sirve como referencia para monitorear el progreso." },
+                { question: "El monitoreo diario de las condiciones psicrométricas (Temp, HR, GPP) es importante para:", options: ["Asegurar que se están manteniendo condiciones de secado efectivas", "Ajustar la factura", "Decidir el color de la pintura", "Cumplir con las regulaciones de ruido"], correctAnswer: "Asegurar que se están manteniendo condiciones de secado efectivas", explanation: "Las lecturas psicrométricas confirman si los deshumidificadores están funcionando y si el aire tiene la capacidad de aceptar más humedad (bajo GPP, HR controlada)." },
+                { question: "El equipo de secado debe retirarse cuando:", options: ["El cliente lo pida", "Se acabe el presupuesto", "Los objetivos de secado se han alcanzado y confirmado con medidores", "Hayan pasado 3 días"], correctAnswer: "Los objetivos de secado se han alcanzado y confirmado con medidores", explanation: "El equipo se retira solo después de verificar que todos los materiales afectados han vuelto a su contenido de humedad normal (objetivo de secado)." }
+            ],
+            // --- MÓDULO 15: REPASO Y FÓRMULAS ---
+            module15: [
+                { question: "¿Cuántos galones de agua contiene aproximadamente un pie cúbico?", options: ["1 galón", "7.48 galones", "10 galones", "3.78 galones"], correctAnswer: "7.48 galones", explanation: "Esta es una conversión útil para estimar volúmenes de agua." },
+                { question: "¿A qué eficiencia están clasificados los filtros HEPA para eliminar partículas de 0.3 micrones?", options: ["50%", "90%", "99.97%", "100%"], correctAnswer: "99.97%", explanation: "Los filtros HEPA (High Efficiency Particulate Air) son muy eficientes capturando partículas pequeñas, incluyendo esporas de moho." },
+                { question: "¿Cuál es la fórmula para calcular el CFM (pies cúbicos por minuto) mínimo recomendado para Dispositivos de Filtración de Aire (AFD) en un área de contención?", options: ["Largo x Ancho", "Volumen / 60", "Volumen x Cambios de Aire por Hora / 60", "Amperaje x Voltaje"], correctAnswer: "Volumen x Cambios de Aire por Hora / 60", explanation: "Se calcula el volumen del área (L x A x Al) y se multiplica por los cambios de aire por hora recomendados (ACH, usualmente 4-6 para WRT), dividido por 60 para obtener CFM." },
+                { question: "¿Aproximadamente a qué contenido de humedad (MC) puede empezar a crecer el moho en la superficie de la madera?", options: ["5%", "10%", "16-20%", "50%"], correctAnswer: "16-20%", explanation: "Aunque varía, niveles de MC por encima del 16% (y ciertamente por encima del 20%) se consideran suficientes para soportar el crecimiento de moho en materiales susceptibles como la madera." },
+                { question: "La 'depresión de grano' ('Grain Depression') se refiere a:", options: ["Un tipo de madera", "La diferencia entre la humedad específica (GPP) del aire que entra y el aire que sale del deshumidificador", "El estado de ánimo del técnico", "Una herramienta de medición"], correctAnswer: "La diferencia entre la humedad específica (GPP) del aire que entra y el aire que sale del deshumidificador", explanation: "Una mayor depresión de grano indica un mayor rendimiento del deshumidificador." },
+                { question: "Al calcular la carga eléctrica, ¿qué porcentaje de la capacidad de un circuito se recomienda no exceder para uso continuo?", options: ["50%", "80%", "100%", "120%"], correctAnswer: "80%", explanation: "Para equipos que funcionan continuamente (como deshumidificadores y sopladores), se recomienda no cargar un circuito más allá del 80% de su capacidad nominal para evitar sobrecalentamiento y disparos." },
+                { question: "Una consideración clave al manejar agua de Categoría 2 o 3 es:", options: ["Usar menos equipo para ahorrar costos", "La necesidad de EPP adecuado y posible eliminación de materiales porosos", "Que se seca más rápido que la Categoría 1", "Que no requiere documentación especial"], correctAnswer: "La necesidad de EPP adecuado y posible eliminación de materiales porosos", explanation: "La contaminación en Cat 2/3 exige mayores precauciones de seguridad y procedimientos de manejo de materiales más estrictos." }
+            ]
+        };
+
+        // --- Datos del Test Final (Módulo 16 - Textos y Mayúsculas corregidos) ---
+        const finalTestData = [
+            { question: "¿1 pie cúbico de agua contiene cuántos galones?", answer: "7.48 galones" },
+            { question: "¿Un galón de agua pesa cuántas libras?", answer: "8.34 libras" },
+            { question: "¿El curso de acción más crítico en el secado restaurativo es?", answer: "Responder rápidamente" },
+            { question: "¿Todos los restauradores deben seguir el estándar de cuidado para la profesión de restauración de agua desarrollado por la industria de la restauración titulado IICRC _____?", answer: "S500" },
+            { question: "¿Para ayudar a proteger a los técnicos de los muchos peligros asociados con las pérdidas de agua contaminada, los restauradores deben tener fácil acceso a varios elementos. Estos artículos protegen de todas las _____ al cuerpo?", answer: "Posibles exposiciones" },
+            { question: "¿Las normas de protección respiratoria establecen que el empleador debe proporcionar qué tres cosas?", answer: "Evaluación Médica, Prueba de Ajuste ('Fit Testing'), Entrenamiento" },
+            { question: "¿Como requisito médico mínimo, los técnicos que realizan servicios de restauración de daños por agua necesitan consultar médicamente con sus _____ para las vacunas adecuadas?", answer: "Médicos / proveedores de atención médica" },
+            { question: "¿El contrato establece claramente el acuerdo entre el propietario del edificio y el contratista de restauración. El formulario especifica quién es responsable del pago y debe estar firmado _____ de que comience el trabajo?", answer: "Antes" },
+            { question: "¿La primera responsabilidad del técnico al llegar a un sitio dañado por el agua es identificar, comunicar y eliminar _____?", answer: "Peligros de seguridad" },
+            { question: "¿Los peligros de seguridad más comunes asociados con las estructuras dañadas por el agua son _____ y _____?", answer: "Resbalones y caídas" },
+            { question: "¿Las regulaciones federales se aplican al manejo de pintura a base de _____ y asbesto?", answer: "Plomo" },
+            { question: "¿Una vez que se han abordado los problemas de seguridad y se ha detenido la fuente de agua inicial, el restaurador debe completar una evaluación de la migración del agua a través de la estructura. Durante este proceso, el restaurador inspecciona todas las áreas _____?", answer: "Potencialmente afectadas" },
+            { question: "¿El objetivo final es encontrar el \"borde\" de la migración del agua. Esto se logra en superficies alfombradas utilizando un _____ y en la mayoría de las superficies duras utilizando un medidor de humedad (no penetrante)?", answer: "Sensor de humedad (o medidor con clavijas)" },
+            { question: "¿Se dice que el agua de una fuente limpia sin riesgo sustancial de causar enfermedades o molestias es agua de _____?", answer: "Categoría 1" },
+            { question: "¿El agua que tiene un grado significativo de contaminación química, biológica y/o física y potencial para causar enfermedades o molestias es agua de _____?", answer: "Categoría 2" },
+            { question: "¿Cuando la intrusión de agua es el resultado de una fuente extremadamente insalubre o transporta agentes patógenos (causantes de enfermedades), se dice que es de Categoría _____?", answer: "3" },
+            { question: "¿La _____ y seguridad de los trabajadores y ocupantes son la primera prioridad en cada pérdida por aguas residuales?", answer: "Salud" },
+            { question: "¿Cuando se encuentra resistencia y la realización de servicios adecuados en una pérdida de agua de Categoría 3 se convierte en un desafío, los restauradores _____ de inmediato y _____ para prevenir responsabilidades?", answer: "Detienen el trabajo / consultan (o documentan)" },
+            { question: "¿Los expertos externos se conocen comúnmente como Profesionales del Medio Ambiente Interior, o _____?", answer: "IEP (Indoor Environmental Professional)" },
+            { question: "¿Las pérdidas en las que los materiales regulados o peligrosos han contaminado la estructura no cambian la _____ del agua?", answer: "Categoría" },
+            { question: "¿Las condiciones preexistentes deben ser identificadas, documentadas y comunicadas a todas las partes _____ durante la inspección inicial?", answer: "Materialmente interesadas / relevantes" },
+            { question: "¿Cuando se ha producido la delaminación de la alfombra (la pérdida de integridad de los adhesivos utilizados para laminar el soporte primario y secundario), es muy probable que se produzcan más daños. Por esta razón, cuando se descubre una delaminación extensa de la alfombra, los técnicos deben llamar la atención de todas las partes materialmente interesadas, documentar la condición y sugerir _____?", answer: "El reemplazo" },
+            { question: "¿Hay una serie de causas para la delaminación de la alfombra, muchas de ellas relacionadas con actividades de restauración _____?", answer: "Incorrectas" },
+            { question: "¿Cuáles son las causas típicas de la delaminación de la alfombra?", answer: "1. Doblar o estirar cuando está mojada 2. Extracción demasiado agresiva 3. Extracción incorrecta de la tira de tachuelas ('tack strip') 4. Flotación incorrecta de la alfombra" },
+            { question: "¿Los materiales higroscópicos ganan y pierden humedad continuamente en un esfuerzo por alcanzar el _____ con el contenido de agua en la masa de aire circundante?", answer: "Equilibrio" },
+            { question: "¿Deben emplearse procedimientos de limpieza antes de que pueda continuar el secado de una pérdida de agua de Categoría 2. Como mínimo, las _____ afectadas deben retirarse y desecharse, y la alfombra debe limpiarse a fondo utilizando un método de extracción con agua caliente?", answer: "Almohadillas / cojines de alfombra" },
+            { question: "¿Se deben utilizar varios procedimientos de limpieza y descontaminación en las pérdidas de agua de Categoría 3, incluida la eliminación de todos los materiales _____ afectados por la intrusión de agua?", answer: "Porosos" },
+            { question: "¿Muchos materiales de construcción absorberán el exceso de vapor de agua y sufrirán daños, especialmente cuando se permite que el aire permanezca por encima del _____% de humedad relativa?", answer: "60%" },
+            { question: "¿Cumpla con las _____ y regulaciones locales al desechar el agua extraída. Las aguas residuales se eliminan mejor en un alcantarillado sanitario?", answer: "Leyes" },
+            { question: "¿El objetivo principal de la extracción inicial de las áreas afectadas es contener más _____ dentro de la estructura?", answer: "Daños por migración" },
+            { question: "¿Siempre que se deba desenganchar la alfombra de la tira de tachuelas ('tackless strip'), se debe usar un _____ y un 'Carpet awl'?", answer: "Pateador de rodilla ('knee kicker')" },
+            { question: "¿La mayoría de los cojines tienen una piel o malla en la parte superior. El propósito de esta piel es facilitar el _____ durante la instalación; no es una barrera de vapor?", answer: "Estiramiento" },
+            { question: "¿Si se va a volver a instalar la alfombra, los técnicos deben evitar cortar las costuras de la alfombra a menos que sea absolutamente necesario?", answer: "Sí" },
+            { question: "¿Cuántos galones de agua hay en un sótano que mide 13'x20' donde el agua se encuentra a una profundidad de 4'5'' (4.417 pies)?", answer: "Volumen = 13 * 20 * 4.417 = 1148.42 pies³. Galones = 1148.42 * 7.48 ≈ 8,590 galones" },
+            { question: "¿La forma más eficaz de acelerar el proceso de secado es eliminar la mayor cantidad posible de agua en estado líquido durante la fase de _____. Una mala extracción ralentizará significativamente el proceso de secado?", answer: "Extracción" },
+            { question: "¿Cada _____ de agua estancada contiene 7.48 galones y pesa 8.34 libras?", answer: "Pie cúbico" },
+            { question: "¿Hay tres niveles de actividad biocida, según la lista de la EPA, del más débil al más fuerte: _____, _____, _____?", answer: "Sanitizante, Desinfectante, Esterilizador" },
+            { question: "¿Siempre que se utilice un antimicrobiano químico o un biocida, los restauradores deben seguir las instrucciones de la etiqueta _____?", answer: "Explícitamente / al pie de la letra" },
+            { question: "¿La mayoría de los antimicrobianos requieren que el área de aplicación sea desocupada por _____ y mascotas durante la aplicación y durante un período de tiempo después de la aplicación?", answer: "Ocupantes" },
+            { question: "¿Establecer un _____ es la mejor manera de establecer objetivos de secado restaurativo?", answer: "Estándar Seco ('Dry Standard')" },
+            { question: "¿Un estándar seco se establece mediante la obtención de una lectura de humedad utilizando un material _____?", answer: "No afectado / similar seco" },
+            { question: "¿El valor numérico de un medidor de humedad se puede documentar y usar para monitorear el progreso. Por esta razón, la cantidad de humedad absorbida por los materiales estructurales semiporosos se mide con mayor precisión con un medidor de _____?", answer: "Humedad (penetrante / con clavijas)" },
+            { question: "¿Cuando la intrusión de agua hace que el agua corra a través de las cavidades de las paredes, se utilizan orificios de acceso de inspección para garantizar que el aislamiento soplado no se haya compactado y perdido su _____?", answer: "Valor R" },
+            { question: "¿Debido a su naturaleza no invasiva y a su rápida capacidad de exploración, los medidores no invasivos son las herramientas más eficaces para localizar la humedad anormal detrás y por debajo de materiales de acabado como _____ y _____?", answer: "Baldosas cerámicas y vinilo (o revestimientos de suelos resistentes)" },
+            { question: "¿Para evaluar el progreso de los proyectos de secado estructural, qué tres cosas deben medir los restauradores?", answer: "Humedad en Materiales, Condiciones del Aire (Psicrometría), Temperatura (de materiales y aire)" },
+            { question: "¿Un termohigrómetro se utiliza para controlar cualquier aire que pueda influir en la _____ y/o _____ dentro de un entorno de secado restaurador?", answer: "Temperatura, humedad" },
+            { question: "¿Después de eliminar físicamente el exceso de agua, el tiempo requerido para secar los materiales húmedos está influenciado principalmente por la _____?", answer: "Tasa de evaporación" },
+            { question: "¿A medida que el agua se evapora rápidamente, el vapor de agua se elimina mediante _____ o _____?", answer: "Deshumidificación o ventilación" },
+            { question: "¿La _____ ocurre cuando el líquido se convierte en vapor. Ocurre a medida que se aumenta la energía?", answer: "Evaporación" },
+            { question: "¿A medida que la humedad se evapora de un material húmedo, la superficie del material se vuelve _____ porque se libera energía del material?", answer: "Más fresca" },
+            { question: "¿La _____ ocurre cuando el vapor se convierte en líquido. Ocurre cuando se elimina la energía?", answer: "Condensación" },
+            { question: "¿La _____ ocurre cuando un sólido se convierte en vapor (sin pasar por una fase líquida)?", answer: "Sublimación" },
+            { question: "¿La liofilización (sublimación) se utiliza normalmente con valiosos libros y documentos saturados. Los libros y documentos saturados con agua limpia pueden ser restaurables si son _____ o _____ lo más rápido posible?", answer: "Congelados o secados" },
+            { question: "¿Cuando la temperatura del aire aumenta, puede retener _____ vapor de agua?", answer: "Más" },
+            { question: "¿La evaporación aumentará cuándo?", answer: "Los materiales húmedos se calientan, se utiliza aire más seco, o el aire se mueve más rápidamente a través de la superficie mojada." },
+            { question: "¿Si un material no se está secando bien, cuál es el método más eficaz para aumentar la evaporación?", answer: "Calentar el material" },
+            { question: "¿Uno de los métodos más efectivos para secar madera húmeda debajo de superficies duras es _____?", answer: "El flujo de aire caliente (o sistemas de secado de pisos)" },
+            { question: "¿La cantidad de humedad contenida en una muestra de aire, en comparación con la cantidad máxima que el aire podría contener a esa temperatura, se denomina _____?", answer: "Humedad relativa (HR)" },
+            { question: "¿En la industria del secado restaurativo, la medida de peso utilizada para medir el vapor de agua en el aire es granos por libra de aire (GPP). A esto se le llama _____?", answer: "Relación de Humedad (o Humedad Específica)" },
+            { question: "¿A. 60°F al 20% HR = _____ GPP B. 80°F al 50% HR = _____ GPP Cuál tiene la presión de vapor más baja?", answer: "A. ≈11 GPP B. ≈77 GPP; A tiene la presión de vapor más baja." },
+            { question: "¿Cuál es la temperatura de la superficie a la que la condensación se convertiría en un riesgo para el aire, que está a 80°F y 60% HR?", answer: "≈65°F (Punto de Rocío)" },
+            { question: "¿Cuál es la temperatura en grados Fahrenheit si la relación de humedad es de 70 GPP y la humedad relativa es del 60%?", answer: "≈75°F" },
+            { question: "¿El _____ es la temperatura a la que el aire se satura con vapor de humedad, o no puede retener más vapor de agua?", answer: "Punto de rocío" },
+            { question: "¿Cuando el aire se enfría, su capacidad para retener vapor de agua se reduce. Eventualmente, si la temperatura se enfría lo suficiente, la humedad relativa alcanzará el _____%. Cuando esto ocurre, el aire ha alcanzado su punto de _____?", answer: "100, rocío (o saturación)" },
+            { question: "¿Si las superficies están _____ del punto de rocío del aire circundante, el agua se condensará en esas superficies y posiblemente causará daños secundarios?", answer: "Por debajo" },
+            { question: "¿Si las superficies están _____ del punto de rocío del aire circundante, puede producirse la evaporación?", answer: "Por encima" },
+            { question: "¿La _____ es la fuerza ejercida por un gas (moléculas de vapor) sobre el entorno circundante?", answer: "Presión de vapor" },
+            { question: "¿Cuanto mayor sea el peso del vapor de agua, mayor será la presión de vapor; por lo tanto, la presión de vapor, el punto de rocío y la relación de humedad (GPP) están _____ entre sí?", answer: "Directamente relacionados" },
+            { question: "¿La presión del vapor de agua es la fuerza que impulsa concentraciones más altas de humedad de un espacio a otro en un intento de buscar _____ con concentraciones más bajas de vapor de agua?", answer: "Equilibrio" },
+            { question: "¿La capacidad del vapor de agua para difundirse a través de un material sólido se expresa como la _____ del material?", answer: "Permeancia" },
+            { question: "¿Un sistema de secado que utiliza intencionadamente el aire exterior para reducir la humedad interior sin deshumidificación mecánica se denomina _____?", answer: "Sistema de secado abierto" },
+            { question: "¿El sistema de secado que utiliza solo deshumidificación mecánica se llama _____?", answer: "Sistema de secado cerrado" },
+            { question: "¿El sistema de secado que utiliza algo de aire exterior combinado con la deshumidificación mecánica se llama _____?", answer: "Sistema de secado combinado" },
+            { question: "¿Si se determina que el secado combinado es apropiado, qué opciones tiene a su disposición el restaurador (teniendo en cuenta la seguridad del edificio)?", answer: "1. Uso de ventiladores de ventilación en la estructura 2. Uso de motores de aire para crear diferenciales de presión e intercambio de aire 3. Apertura de ventanas y puertas" },
+            { question: "¿Cuando la temperatura del material es más alta que la temperatura _____ del aire circundante, puede ocurrir la evaporación?", answer: "Del punto de rocío" },
+            { question: "¿Una temperatura superficial 30°F por encima del punto de rocío tendría la tasa más rápida de _____?", answer: "Evaporación" },
+            { question: "¿Directamente relacionado con el GPP y el punto de rocío, la _____ es la presión del vapor de agua sobre las superficies y objetos circundantes, y se mide en pulgadas de mercurio (inHg)?", answer: "Presión de vapor" },
+            { question: "¿El movimiento del vapor de agua a través de un material se denomina _____?", answer: "Difusión de vapor" },
+            { question: "¿Una medida de la capacidad del vapor para viajar a través de un material se denomina _____?", answer: "Permeancia" },
+            { question: "¿La _____ es la diferencia en GPP entre el aire que entra y el aire que sale de un deshumidificador: un indicador del rendimiento del deshumidificador?", answer: "Depresión de grano ('Grain Depression')" },
+            { question: "¿Un _____ es un producto químico que reduce la cantidad de microorganismos en una superficie, pero no elimina toda la vida microbiana?", answer: "Sanitizante" },
+            { question: "¿Un _____ es un producto químico que mata la mayoría de las formas de vida microbiana, pero no necesariamente las esporas microbianas?", answer: "Desinfectante" },
+            { question: "¿Un _____ es un producto químico que mata todas las formas de vida microbiana, incluidas sus esporas?", answer: "Esterilizador" },
+            { question: "¿El porcentaje de humedad en la madera en comparación con su peso secado al horno se conoce como _____?", answer: "Contenido de Humedad (%MC)" },
+            { question: "¿_____ es la Asociación de Fabricantes de Electrodomésticos ('Association of Home Appliance Manufacturers'), que publica los resultados de las pruebas para la eliminación de agua de los deshumidificadores en condiciones de 80°F/60% HR durante 24 horas?", answer: "AHAM" },
+            { question: "¿Cuál es la ecuación para calcular galones de agua?", answer: "Pies cúbicos de agua × 7.48 = Galones" },
+            { question: "¿Cuál es la fórmula del costo eléctrico diario?", answer: "Amperios × Voltios × 24 / 1000 × Costo por kWh = Costo por día" },
+            { question: "¿Cómo se calculan los BTU de calor generados por el equipo por hora?", answer: "Amperios × Voltios × 3.4 = BTU/hr" },
+            { question: "¿Cómo se calcula el rendimiento aproximado en pintas por día?", answer: "Depresión de grano (ΔGPP) × CFM / 71 ≈ Pintas/día (aproximado)" },
+            { question: "¿Cómo se calcula el CFM necesario para un dispositivo de filtración de aire (AFD)?", answer: "Volumen (pies cúbicos) × ACH / 60 = CFM" },
+            { question: "¿Una libra de aire ocupa aproximadamente cuántos pies cúbicos?", answer: "≈14 pies cúbicos (varía con T° y presión)" },
+            { question: "¿Cuántos granos hay en 1 libra?", answer: "7000" },
+            { question: "¿Una tonelada de aire acondicionado equivale aproximadamente a cuántos BTU por hora?", answer: "12,000 BTU/hr" },
+            { question: "¿Todos los elementos de la estructura deben secarse hasta alcanzar qué rango porcentual del EMC (Contenido de Humedad de Equilibrio) normal?", answer: "Dentro del 10% del estándar seco (o según especificación, ej., 2-4 puntos %)" },
+            { question: "¿Qué porcentaje de MC (Contenido de Humedad) y superior puede soportar el crecimiento de moho en la superficie de la madera?", answer: "16%" },
+            { question: "¿El 20% de MC soporta qué tipo de pudrición en la madera?", answer: "Pudrición seca ('Dry Rot' - aunque requiere humedad)" },
+            { question: "¿El 30% MC es el punto de saturación de la fibra de madera y soporta qué tipo de pudrición?", answer: "Pudrición húmeda ('Wet Rot')" },
+            { question: "¿Nunca se debe usar más del _____% de la energía disponible en un circuito para carga continua?", answer: "80%" },
+            { question: "¿Los filtros HEPA eliminan qué porcentaje de todas las partículas de hasta 0.3 micrones?", answer: "99.97%" },
+            { question: "¿55 GPP es el límite inferior aproximado para el rendimiento efectivo de qué tipo de deshumidificadores?", answer: "Refrigerante Convencional" },
+            { question: "¿34 GPP es el límite inferior aproximado para el rendimiento efectivo de qué tipo de deshumidificadores?", answer: "LGR (Low Grain Refrigerant)" },
+            { question: "¿Qué significa ACM?", answer: "Material que Contiene Amianto (Asbestos Containing Material)" },
+            { question: "¿Qué significa EMC?", answer: "Contenido de Humedad de Equilibrio (Equilibrium Moisture Content)" },
+            { question: "¿Qué significa MDF?", answer: "Tablero de Fibra de Densidad Media (Medium Density Fiberboard)" },
+            { question: "¿Qué significa AFD?", answer: "Dispositivo de Filtración de Aire (Air Filtration Device)" },
+            { question: "¿Qué significa CFM?", answer: "Pies Cúbicos por Minuto (Cubic Feet per Minute)" },
+            { question: "¿Qué significa ACH?", answer: "Cambios de Aire por Hora (Air Changes per Hour)" },
+            { question: "¿Qué significa AEH?", answer: "Intercambios de Aire por Hora (Air Exchanges per Hour - sinónimo de ACH)" },
+            { question: "¿Los materiales con un índice de permeabilidad ('perm rating') inferior a _____ se denominan materiales retardantes de vapor?", answer: "1.0 perm" },
+            { question: "¿La _____ de vapor es el proceso por el cual el agua se mueve a través de un material permeable?", answer: "Difusión" },
+            { question: "¿Cuando se crea una presión negativa, el aire se moverá desde los espacios vecinos para \"compensar\" el aire eliminado. Este proceso se conoce como _____?", answer: "Infiltración" },
+            { question: "¿La fuerte presión de aire _____ puede hacer que el escape de los aparatos de combustión retroceda hacia la estructura?", answer: "Negativa" },
+            { question: "¿Los espacios de acceso ('crawl spaces') suelen estar sucios; cuando se secan, se mantienen bajo una presión de aire _____ en relación con el _____ de la casa para evitar que los compuestos orgánicos volátiles y las partículas ingresen al espacio habitable?", answer: "Negativa, resto" },
+            { question: "¿Las presiones de aire positivas se crean agregando aire a un espacio. Esta desigualdad dará lugar a la _____ del aire hacia los espacios vecinos?", answer: "Exfiltración" },
+            { question: "¿Las intrusiones de agua de Clase _____ implican la menor absorción de agua, con menos del _____% de las superficies siendo materiales porosos húmedos?", answer: "1, 5%" },
+            { question: "¿Las intrusiones de agua de Clase _____ implican una cantidad significativa de absorción de agua, con más del 5% pero menos del _____% de las superficies del área siendo materiales porosos húmedos?", answer: "2, 40%" },
+            { question: "¿Las intrusiones de agua de Clase _____ implican la mayor cantidad de absorción de agua, con más del _____% de las superficies del área siendo materiales porosos húmedos?", answer: "3, 40%" },
+            { question: "¿Los materiales húmedos presentes en una intrusión de agua de Clase _____ requieren técnicas de secado especiales... Los materiales de baja evaporación tienen _____ absorción de agua?", answer: "4, una baja permeancia o una profunda" },
+            { question: "¿Los restauradores deben mantener adecuadamente su equipo certificado de seguridad. Esto incluye reemplazar los _____ que estén dañados y reemplazar las _____ de entrada y salida dañadas?", answer: "Cables eléctricos ('cords'), rejillas/pantallas ('screens')" },
+            { question: "¿Instale _____ motor de aire para cada área afectada antes de calcular los motores de aire adicionales para los pies cuadrados de superficies y para las compensaciones de las habitaciones?", answer: "1" },
+            { question: "¿La deshumidificación reduce el contenido de _____ del aire?", answer: "Humedad (vapor de agua)" },
+            { question: "¿Un sistema de secado equilibrado se logra cuando la tasa de deshumidificación es mayor o igual a la tasa de _____?", answer: "Evaporación" },
+            { question: "¿Si se permite que la tasa de evaporación exceda la tasa de deshumidificación, qué puede ocurrir?", answer: "Daño secundario (o condensación)" },
+            { question: "¿Los deshumidificadores refrigerantes eliminan el agua del aire a través del proceso de _____?", answer: "Condensación" },
+            { question: "¿Los deshumidificadores refrigerantes funcionan mejor entre qué rango de temperaturas?", answer: "70°F y 90°F" },
+            { question: "¿Los dispositivos de filtración de aire (AFD) son necesarios en los trabajos de restauración de agua siempre que se generen altos niveles de _____ en el aire?", answer: "Partículas" },
+            { question: "¿Los deshumidificadores refrigerantes convencionales a temperatura normal son efectivos para reducir la alta humedad a un nivel normal: aproximadamente 40% HR, o alrededor de _____ GPP?", answer: "55 GPP" },
+            { question: "¿Los LGR producen GPP _____ que los refrigerantes convencionales y continúan eliminando una cantidad significativa de vapor de agua hasta _____ GPP?", answer: "Más bajos, 34 GPP" },
+            { question: "¿Debido a que los deshumidificadores desecantes no utilizan condensación para eliminar el agua, producen la _____ más baja de cualquier deshumidificador?", answer: "Presión de vapor (o GPP)" },
+            { question: "¿Si una estructura tuviera aire afectado a 85°F y 65% HR, el tipo de deshumidificador más eficiente a usar sería un _____?", answer: "Refrigerante (LGR preferiblemente)" },
+            { question: "¿Si una estructura tuviera aire afectado a 75°F y 25% HR, el tipo de deshumidificador más eficiente a usar sería un _____?", answer: "Desecante" },
+            { question: "¿Si una estructura no puede calentarse a una temperatura en la que los LGR serían efectivos, el tipo de deshumidificador más eficiente a usar sería un _____?", answer: "Desecante" },
+            { question: "¿Cuando se utilizan deshumidificadores refrigerantes convencionales en una pérdida de agua de \"Clase 2\" que contiene 15,000 pies cúbicos, cuál es la capacidad nominal inicial requerida por AHAM?", answer: "Depende del Factor de Tabla S500 para Clase 2 (Ej: 15000 * Factor / 1000 = PPD requeridos)" },
+            { question: "¿Cuando se utilizan deshumidificadores refrigerantes convencionales que eliminan 125 pintas en condiciones AHAM, cuántos se instalan inicialmente en una pérdida de agua de Clase 1 con 25,000 pies cúbicos?", answer: "Depende del Factor de Tabla S500 para Clase 1 (Ej: (25000 * Factor / 1000) / 125 = # Unidades)" },
+            { question: "¿Cuando se utiliza deshumidificación desecante en una pérdida de agua de Clase 4 en una estructura de 2,000 pies cuadrados con una altura de techo de 9 pies, cuál es el CFM inicial requerido?", answer: "Depende del ACH recomendado por S500 para Clase 4 (Ej: (2000 * 9) * ACH / 60 = CFM)" },
+            { question: "¿El _____ representa el material de \"madera\" con la menor ingeniería y, por lo tanto, la unión de fibras más natural?", answer: "Contrachapado ('Plywood')" },
+            { question: "¿El contrachapado es _____ a la hinchazón y la delaminación debido a sus capas de chapa de madera pegadas bajo presión extrema?", answer: "Resistente" },
+            { question: "¿Normalmente, el tablero de partículas húmedo se _____ y _____?", answer: "Elimina y reemplaza" },
+            { question: "¿El piso laminado de plástico está compuesto por _____ y tiene una capa de apariencia saturada de resina?", answer: "MDF" },
+            { question: "¿Retire el vinilo (piso) y deséchelo si el _____ está saturado y/o dañado. La barrera de vapor del vinilo se elimina y el tiempo requerido para secar el contrapiso se reducirá drásticamente?", answer: "Contrapiso ('subfloor')" },
+            { question: "¿La flotación parcial de la alfombra puede ser una forma de lograr el secado de todas las superficies simultáneamente y permite que _____ aire seco tenga más contacto con el piso mojado?", answer: "El" },
+            { question: "¿Durante el proceso de secado, se restaura toda la resistencia original del yeso?", answer: "Sí (Incluso puede ser ligeramente más fuerte)" },
+            { question: "¿En estructuras donde la superficie de la pared está cubierta con un acabado no _____, puede ser necesario hacer orificios detrás de la moldura de base e introducir movimiento de aire?", answer: "Permeable" },
+            { question: "¿El flujo de aire en la cavidad de la pared aumenta la tasa de _____ y permite que la pared se seque tanto por dentro como por fuera?", answer: "Evaporación" },
+            { question: "¿Cuando los techos se ven afectados, si el techo se hunde o está dañado, qué se hace con el panel de yeso mojado?", answer: "Se drena, se quita y se desecha" },
+            { question: "¿Cuáles son algunos tipos específicos de daños secundarios asociados con el contenido?", answer: "Hinchazón, Manchas, Transferencia de color, Delaminación de la superficie/acabado" },
+            { question: "¿El acopamiento ('cupping') generalmente será la primera indicación de niveles anormales de humedad en los pisos de madera, ya que el _____ y los lados de la tabla absorben la humedad?", answer: "Fondo" },
+            { question: "¿El acopamiento ('cupping') en madera dura es un daño permanente?", answer: "No (Generalmente reversible con secado adecuado)" },
+            { question: "¿Los restauradores sabrán que el trabajo de secado está finalizado cuando los medidores de humedad verifiquen que la estructura ha alcanzado el _____?", answer: "Objetivo de secado ('Dry Standard')" },
+            { question: "¿Qué es RMC?", answer: "Registro de Contenido de Humedad ('Record of Moisture Content')" },
+            { question: "¿Qué es un diagrama o croquis que indica los límites y los niveles de humedad de la zona afectada?", answer: "Mapa de humedad" },
+            { question: "¿Qué es RDC o Registro Diario de Humedad?", answer: "Registro Diario de Condiciones de Secado ('Daily Drying Conditions / Humidity Record')" },
+            { question: "¿La madera dura y las subsuperficies deben secarse hasta estar dentro de cuántos puntos porcentuales del Contenido de Humedad de Equilibrio (Estándar Seco) normal?", answer: "2-4 puntos porcentuales (o según especificación)" },
+            { question: "¿Después de que el piso de madera se haya secado hasta un contenido de humedad aceptable, qué proceso es necesario antes de lijar o reacabar?", answer: "Aclimatación" },
+            { question: "¿La mejor manera de prevenir los olores y retardar el crecimiento microbiano en una estructura húmeda es asegurarse de que todos los materiales se sequen _____ y _____?", answer: "A fondo y rápidamente" },
+            { question: "¿A medida que el moho crece, puede producir sustancias químicas tóxicas. Todas las toxinas relacionadas con el moho se denominan _____?", answer: "Micotoxinas" },
+            { question: "¿Cuando se sospecha de la presencia de moho, es importante comunicarse con todas las partes y utilizar las medidas de _____ correctas?", answer: "Precaución / contención" },
+            { question: "¿Al igual que con cualquier contaminante, el moho debe ser _____ o contenido antes de que se utilicen motores de aire en la estructura?", answer: "Eliminado" },
+            { question: "¿Soplar aire puede propagar las esporas de moho desde las áreas afectadas a las habitaciones _____?", answer: "No afectadas" },
+            { question: "¿La pudrición seca puede ocurrir cuando la madera está visiblemente seca pero más húmeda que el _____% del contenido de humedad?", answer: "20%" },
+            { question: "¿La velocidad del aire soplado por los motores de aire se mide en _____?", answer: "FPM (Pies Por Minuto)" }
+        ];
+
+
+        // --- Variables de Estado del Quiz ---
+        let questionStates = {}; // Stores the state of each answered question in modules 1-15
+        let moduleScores = {}; // Stores scores per module 1-15
+
+        // --- Lógica de Navegación ---
+        const moduleLinks = document.querySelectorAll('.module-link');
+        const moduleContents = document.querySelectorAll('.module-content');
+        const moduleTitle = document.getElementById('module-title');
+        const initialMessage = document.getElementById('initial-message');
+        const scoreDisplay = document.getElementById('quiz-score');
+        const resetTotalButton = document.getElementById('reset-total-button');
+
+        // Función para mostrar un módulo específico
+        function showModule(moduleId) {
+            moduleContents.forEach(content => content.classList.remove('active'));
+            if (initialMessage) initialMessage.style.display = 'none';
+
+            const selectedModule = document.getElementById(moduleId);
+            const selectedLink = document.querySelector(`.module-link[data-module="${moduleId}"]`);
+
+            if (selectedModule && selectedLink) {
+                selectedModule.classList.add('active');
+                moduleTitle.textContent = selectedLink.textContent;
+                moduleLinks.forEach(link => {
+                    link.classList.remove('bg-gray-700', 'font-semibold');
+                    if(link.getAttribute('data-module') === moduleId) {
+                        link.classList.add('bg-gray-700', 'font-semibold');
+                    }
+                });
+                if (moduleId === 'module16') {
+                    loadFinalTest(moduleId);
+                } else {
+                    loadQuiz(moduleId);
+                }
+            } else {
+                 if(initialMessage) initialMessage.style.display = 'block';
+                 moduleTitle.textContent = 'Bienvenido a la Herramienta de Estudio WRT';
+                 moduleLinks.forEach(link => link.classList.remove('bg-gray-700', 'font-semibold'));
+            }
+            updateTotalScoreDisplay();
+        }
+
+        // Añadir listeners a los enlaces de los módulos
+        moduleLinks.forEach(link => {
+            link.addEventListener('click', (event) => {
+                event.preventDefault();
+                const moduleId = link.getAttribute('data-module');
+                showModule(moduleId);
+                document.querySelector('main').scrollTop = 0;
+            });
+        });
+
+        // --- Lógica del Quiz (Módulos 1-15) ---
+        function initializeModuleScore(moduleId) {
+            if (parseInt(moduleId.replace('module','')) > 15) return;
+            if (!moduleScores[moduleId] || moduleScores[moduleId].total === 0) {
+                const questions = quizData[moduleId] || [];
+                moduleScores[moduleId] = { correct: 0, attempted: 0, total: questions.length };
+            }
+             let currentCorrect = 0;
+             let currentAttempted = 0;
+             const questions = quizData[moduleId] || [];
+             questions.forEach((q, index) => {
+                 const questionId = `${moduleId}-q${index}`;
+                 if (questionStates[questionId]?.answered) {
+                     currentAttempted++;
+                     if (questionStates[questionId].correct) {
+                         currentCorrect++;
+                     }
+                 }
+             });
+             if(moduleScores[moduleId]){
+                moduleScores[moduleId].correct = currentCorrect;
+                moduleScores[moduleId].attempted = currentAttempted;
+             }
+        }
+
+        function loadQuiz(moduleId) {
+            if (parseInt(moduleId.replace('module','')) > 15) return;
+            initializeModuleScore(moduleId);
+            const questions = quizData[moduleId] || [];
+            const quizContainer = document.querySelector(`#${moduleId} .quiz-container`);
+            const moduleScoreDisplay = document.getElementById(`quiz-module-score-${moduleId}`);
+            const resetButton = document.getElementById(`reset-module-quiz-${moduleId}`);
+            if (!quizContainer || !moduleScoreDisplay || !resetButton) return;
+            // Ensure quizContainer is part of the quiz-section div
+            const quizSection = document.querySelector(`#${moduleId} .quiz-section`);
+            if (!quizSection) return; // Exit if quiz section not found
+            quizContainer.innerHTML = ''; // Clear only the container
+
+            if (questions.length === 0) {
+                quizContainer.innerHTML = '<p class="text-gray-500">Aún no hay preguntas de autoevaluación para este módulo.</p>';
+                moduleScoreDisplay.style.display = 'none';
+                resetButton.style.display = 'none';
+                return;
+            }
+
+            moduleScoreDisplay.style.display = 'block';
+            resetButton.style.display = 'inline-block';
+
+            const newResetButton = resetButton.cloneNode(true);
+            resetButton.parentNode.replaceChild(newResetButton, resetButton);
+            newResetButton.addEventListener('click', () => resetModuleQuiz(moduleId));
+
+            questions.forEach((q, index) => {
+                const questionId = `${moduleId}-q${index}`;
+                const questionState = questionStates[questionId] || { answered: false };
+                const questionDiv = document.createElement('div');
+                questionDiv.classList.add('quiz-question');
+                questionDiv.setAttribute('data-question-id', questionId);
+                const questionText = document.createElement('p');
+                questionText.classList.add('mb-3', 'font-semibold');
+                questionText.textContent = `Pregunta ${index + 1}: ${q.question}`;
+                questionDiv.appendChild(questionText);
+                const optionsDiv = document.createElement('div');
+                optionsDiv.classList.add('quiz-options');
+                q.options.forEach(optionText => {
+                    const button = document.createElement('button');
+                    button.innerHTML = `<span class="feedback-icon"></span><span>${optionText}</span>`;
+                    optionsDiv.appendChild(button);
+                    const iconSpan = button.querySelector('.feedback-icon');
+                    if (questionState.answered) {
+                        button.disabled = true;
+                        if (optionText === q.correctAnswer) {
+                            button.classList.add('correct');
+                            if(iconSpan) iconSpan.textContent = '✔️';
+                        }
+                        if (optionText === questionState.selected && !questionState.correct) {
+                            button.classList.add('incorrect');
+                             if(iconSpan) iconSpan.textContent = '❌';
+                        }
+                    } else {
+                         button.addEventListener('click', () => checkAnswer(moduleId, q, optionText, button, questionDiv, questionId));
+                    }
+                });
+                questionDiv.appendChild(optionsDiv);
+                const explanationDiv = document.createElement('div');
+                explanationDiv.classList.add('quiz-explanation');
+                explanationDiv.innerHTML = `<strong>Explicación:</strong> ${q.explanation}`;
+                questionDiv.appendChild(explanationDiv);
+                if (questionState.answered) {
+                     explanationDiv.classList.add('visible');
+                }
+                quizContainer.appendChild(questionDiv);
+            });
+            updateModuleScoreDisplay(moduleId);
+        }
+
+        function checkAnswer(moduleId, questionData, selectedOption, buttonElement, questionContainer, questionId) {
+            if (questionStates[questionId]?.answered) return;
+            const optionsContainer = buttonElement.parentElement;
+            const explanationDiv = questionContainer.querySelector('.quiz-explanation');
+            const allButtons = optionsContainer.querySelectorAll('button');
+            const isCorrect = (selectedOption === questionData.correctAnswer);
+            if (!questionStates[questionId]) {
+                 initializeModuleScore(moduleId);
+                 moduleScores[moduleId].attempted++;
+                 if (isCorrect) {
+                    moduleScores[moduleId].correct++;
+                 }
+            }
+             questionStates[questionId] = {
+                answered: true,
+                correct: isCorrect,
+                selected: selectedOption
+            };
+            allButtons.forEach(btn => {
+                btn.disabled = true;
+                const optionText = btn.querySelector('span:last-child').textContent;
+                const iconSpan = btn.querySelector('.feedback-icon');
+                 if (!iconSpan) return;
+                if (optionText === questionData.correctAnswer) {
+                    btn.classList.add('correct');
+                    iconSpan.textContent = '✔️';
+                }
+                if (btn === buttonElement && !isCorrect) {
+                    btn.classList.add('incorrect');
+                    iconSpan.textContent = '❌';
+                } else if (btn !== buttonElement && optionText !== questionData.correctAnswer) {
+                     iconSpan.textContent = '';
+                }
+            });
+            if (explanationDiv) {
+                explanationDiv.classList.add('visible');
+            }
+            updateModuleScoreDisplay(moduleId);
+            updateTotalScoreDisplay();
+        }
+
+         function updateModuleScoreDisplay(moduleId) {
+             if (parseInt(moduleId.replace('module','')) > 15) return;
+             const scoreElement = document.getElementById(`quiz-module-score-${moduleId}`);
+             if (scoreElement && moduleScores[moduleId]) {
+                 const score = moduleScores[moduleId];
+                 const totalQuestions = score.total > 0 ? score.total : (quizData[moduleId] || []).length;
+                 scoreElement.textContent = `Puntuación del Módulo: ${score.correct} / ${totalQuestions} (Intentadas: ${score.attempted})`;
+             } else if (scoreElement) {
+                  const questions = quizData[moduleId] || [];
+                  scoreElement.textContent = `Puntuación del Módulo: 0 / ${questions.length} (Intentadas: 0)`;
+             }
+         }
+
+         function updateTotalScoreDisplay() {
+             if (scoreDisplay) {
+                 let totalCorrect = 0;
+                 let totalAvailable = 0;
+                 for (let i = 1; i <= 15; i++) {
+                     const modId = `module${i}`;
+                     if(quizData[modId]) {
+                        totalAvailable += quizData[modId].length;
+                     }
+                 }
+                 totalCorrect = 0;
+                 for (const questionId in questionStates) {
+                     const match = questionId.match(/^module(\d+)-q\d+$/);
+                     if (match && parseInt(match[1]) <= 15) {
+                         if (questionStates[questionId]?.correct) {
+                             totalCorrect++;
+                         }
+                     }
+                 }
+                 scoreDisplay.textContent = `Puntuación Total: ${totalCorrect} / ${totalAvailable}`;
+             }
+         }
+
+        // --- Final Test Logic (Module 16) ---
+        function loadFinalTest(moduleId) {
+            const container = document.getElementById('final-test-container');
+            if (!container) return;
+            container.innerHTML = '';
+            finalTestData.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.classList.add('final-test-item');
+                const questionP = document.createElement('p');
+                questionP.classList.add('final-test-question');
+                let cleanQuestion = item.question.replace(/\?.*$/, '').trim();
+                if (!cleanQuestion.startsWith('¿')) {
+                    cleanQuestion = '¿' + cleanQuestion;
+                }
+                 if (!cleanQuestion.endsWith('?')) {
+                    cleanQuestion = cleanQuestion + '?';
+                }
+                cleanQuestion = cleanQuestion.replace('??','?');
+                questionP.textContent = `${index + 1}. ${cleanQuestion}`;
+                const button = document.createElement('button');
+                button.classList.add('reveal-answer-button');
+                button.textContent = 'Mostrar Respuesta';
+                const answerDiv = document.createElement('div');
+                answerDiv.classList.add('final-test-answer');
+                answerDiv.textContent = item.answer;
+                button.addEventListener('click', () => {
+                    answerDiv.classList.toggle('visible');
+                    button.textContent = answerDiv.classList.contains('visible') ? 'Ocultar Respuesta' : 'Mostrar Respuesta';
+                });
+                div.appendChild(questionP);
+                div.appendChild(button);
+                div.appendChild(answerDiv);
+                container.appendChild(div);
+            });
+        }
+
+        // --- Reset Functions ---
+        function resetModuleQuiz(moduleId) {
+             if (parseInt(moduleId.replace('module','')) > 15) return;
+            if (!quizData[moduleId]) return;
+            quizData[moduleId].forEach((q, index) => {
+                const questionId = `${moduleId}-q${index}`;
+                delete questionStates[questionId];
+            });
+             if (moduleScores[moduleId]) {
+                moduleScores[moduleId].correct = 0;
+                moduleScores[moduleId].attempted = 0;
+             } else {
+                 initializeModuleScore(moduleId);
+             }
+            loadQuiz(moduleId);
+            updateTotalScoreDisplay();
+        }
+
+        function resetTotalQuiz() {
+            questionStates = {};
+            moduleScores = {};
+            const activeModuleLink = document.querySelector('.module-link.bg-gray-700');
+            const activeModuleId = activeModuleLink ? activeModuleLink.getAttribute('data-module') : null;
+            if (activeModuleId) {
+                 if (parseInt(activeModuleId.replace('module','')) <= 15) {
+                     loadQuiz(activeModuleId);
+                 } else if (activeModuleId === 'module16') {
+                     loadFinalTest(activeModuleId);
+                 }
+            }
+            for (let i = 1; i <= 15; i++) {
+                const modId = `module${i}`;
+                 if (document.getElementById(`quiz-module-score-${modId}`)) {
+                    initializeModuleScore(modId);
+                    updateModuleScoreDisplay(modId);
+                 }
+            }
+            updateTotalScoreDisplay();
+        }
+
+        // Add listener to the total reset button
+        if(resetTotalButton) {
+            resetTotalButton.addEventListener('click', resetTotalQuiz);
+        }
+
+        // Initialize the view on page load
+        updateTotalScoreDisplay();
+
+    </script>
+
+</body>
+</html>
